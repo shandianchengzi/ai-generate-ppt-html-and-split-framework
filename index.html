@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI PPT 生成器 - HTML框架</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .license-notice {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 30px;
+            border-radius: 5px;
+        }
+
+        .license-notice strong {
+            color: #856404;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
+
+        .panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .input-group input,
+        .input-group textarea,
+        .input-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus,
+        .input-group textarea:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            margin-top: 10px;
+        }
+
+        .btn-export {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            margin-top: 10px;
+        }
+
+        .slides-container {
+            grid-column: 1 / -1;
+            margin-top: 20px;
+        }
+
+        .slide {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+            aspect-ratio: 16 / 9;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .slide-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+
+        .slide-number {
+            background: #667eea;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .slide-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .slide-actions button {
+            padding: 5px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background 0.3s;
+        }
+
+        .btn-edit {
+            background: #4facfe;
+            color: white;
+        }
+
+        .btn-delete {
+            background: #f5576c;
+            color: white;
+        }
+
+        .slide-content {
+            flex: 1;
+            width: 100%;
+            overflow: auto;
+        }
+
+        .slide-title {
+            font-size: 2em;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .slide-body {
+            font-size: 1.2em;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .prompt-display {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #333;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .slides-container {
+                grid-column: 1;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 AI PPT 生成器</h1>
+            <p>使用 AI 生成专业的演示文稿，支持多页分割和导出</p>
+        </div>
+
+        <div class="license-notice">
+            <strong>⚠️ 开源许可声明：</strong> 本项目采用 CC BY-NC-SA 4.0 许可协议，允许自由 fork 和修改，但<strong>禁止商业使用</strong>。
+        </div>
+
+        <div class="main-content">
+            <div class="panel">
+                <h2>📝 输入参数</h2>
+                <div class="input-group">
+                    <label for="topic">主题</label>
+                    <input type="text" id="topic" placeholder="例如：人工智能的发展历程">
+                </div>
+                <div class="input-group">
+                    <label for="slideCount">幻灯片数量</label>
+                    <select id="slideCount">
+                        <option value="3">3页</option>
+                        <option value="5" selected>5页</option>
+                        <option value="8">8页</option>
+                        <option value="10">10页</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="style">演示风格</label>
+                    <select id="style">
+                        <option value="professional">专业商务</option>
+                        <option value="creative">创意设计</option>
+                        <option value="academic">学术研究</option>
+                        <option value="simple">简约风格</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="additionalInfo">补充说明（可选）</label>
+                    <textarea id="additionalInfo" placeholder="输入任何额外的要求或重点内容..."></textarea>
+                </div>
+                <button class="btn" onclick="generateSlides()">🚀 生成幻灯片</button>
+                <button class="btn btn-secondary" onclick="clearAll()">🗑️ 清空所有</button>
+            </div>
+
+            <div class="panel">
+                <h2>📋 AI 提示词</h2>
+                <div class="prompt-display" id="promptDisplay">
+                    <p><em>填写左侧参数后，点击"生成幻灯片"将显示用于 AI 的提示词。</em></p>
+                </div>
+                <button class="btn btn-export" onclick="copyPrompt()">📋 复制提示词</button>
+                <button class="btn btn-export" onclick="exportToPPTX()">💾 导出为 PPTX 框架</button>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>正在生成幻灯片...</p>
+        </div>
+
+        <div class="main-content slides-container" id="slidesContainer" style="display: none;">
+            <div class="panel" style="grid-column: 1 / -1;">
+                <h2>🎯 生成的幻灯片</h2>
+                <div id="slidesWrapper"></div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>© 2024 AI PPT Generator | 本项目采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" style="color: #667eea;">CC BY-NC-SA 4.0</a> 许可协议 | 禁止商业使用</p>
+        </div>
+    </div>
+
+    <script>
+        let slides = [];
+
+        function generateSlides() {
+            const topic = document.getElementById('topic').value.trim();
+            const slideCount = parseInt(document.getElementById('slideCount').value);
+            const style = document.getElementById('style').value;
+            const additionalInfo = document.getElementById('additionalInfo').value.trim();
+
+            if (!topic) {
+                alert('请输入主题！');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading').classList.add('active');
+
+            // Generate AI prompt
+            const prompt = generatePrompt(topic, slideCount, style, additionalInfo);
+            document.getElementById('promptDisplay').innerHTML = `<pre>${prompt}</pre>`;
+
+            // Simulate AI generation (in real app, this would call an AI API)
+            setTimeout(() => {
+                slides = generateSlidesContent(topic, slideCount, style);
+                renderSlides();
+                document.getElementById('loading').classList.remove('active');
+                document.getElementById('slidesContainer').style.display = 'block';
+            }, 1500);
+        }
+
+        function generatePrompt(topic, slideCount, style, additionalInfo) {
+            const styleDescriptions = {
+                professional: '专业商务风格，使用正式的语言和专业的排版',
+                creative: '创意设计风格，使用生动的语言和创新的表达',
+                academic: '学术研究风格，使用严谨的论证和数据支持',
+                simple: '简约风格，使用简洁明了的语言和清晰的结构'
+            };
+
+            let prompt = `请为主题"${topic}"生成一个包含${slideCount}页的演示文稿。\n\n`;
+            prompt += `演示风格：${styleDescriptions[style]}\n\n`;
+            
+            if (additionalInfo) {
+                prompt += `补充要求：${additionalInfo}\n\n`;
+            }
+
+            prompt += `请按照以下结构生成内容：\n`;
+            prompt += `1. 第1页：标题页 - 包含主题和副标题\n`;
+            
+            for (let i = 2; i < slideCount; i++) {
+                prompt += `${i}. 第${i}页：内容页 - 包含小标题和要点内容\n`;
+            }
+            
+            prompt += `${slideCount}. 第${slideCount}页：总结页 - 包含总结和展望\n\n`;
+            prompt += `每页内容应该包含：\n`;
+            prompt += `- 清晰的标题\n`;
+            prompt += `- 3-5个要点\n`;
+            prompt += `- 简洁明了的说明\n\n`;
+            prompt += `请确保内容连贯、逻辑清晰、重点突出。`;
+
+            return prompt;
+        }
+
+        function generateSlidesContent(topic, slideCount, style) {
+            const newSlides = [];
+
+            // Title slide
+            newSlides.push({
+                title: topic,
+                content: `<div class="slide-body">
+                    <h3 style="text-align: center; margin-top: 20px;">一个专业的演示文稿</h3>
+                    <p style="text-align: center; margin-top: 10px; font-size: 0.9em; color: #888;">演示风格：${getStyleName(style)}</p>
+                </div>`
+            });
+
+            // Content slides
+            const contentTopics = generateContentTopics(topic, slideCount - 2);
+            for (let i = 0; i < contentTopics.length; i++) {
+                newSlides.push({
+                    title: contentTopics[i].title,
+                    content: `<div class="slide-body">
+                        <ul style="list-style-position: inside; text-align: left;">
+                            ${contentTopics[i].points.map(point => `<li style="margin-bottom: 15px;">${point}</li>`).join('')}
+                        </ul>
+                    </div>`
+                });
+            }
+
+            // Summary slide
+            newSlides.push({
+                title: '总结与展望',
+                content: `<div class="slide-body">
+                    <ul style="list-style-position: inside; text-align: left;">
+                        <li style="margin-bottom: 15px;">回顾了${topic}的关键要点</li>
+                        <li style="margin-bottom: 15px;">探讨了重要的发展方向</li>
+                        <li style="margin-bottom: 15px;">展望未来的发展趋势</li>
+                        <li style="margin-bottom: 15px;">感谢您的观看！</li>
+                    </ul>
+                </div>`
+            });
+
+            return newSlides;
+        }
+
+        function generateContentTopics(topic, count) {
+            const topics = [];
+            const baseTopics = [
+                { title: '背景介绍', points: ['当前发展状况', '主要挑战和机遇', '研究的重要性', '相关领域概览'] },
+                { title: '核心概念', points: ['基本定义和原理', '关键技术要点', '理论框架', '实施方法'] },
+                { title: '应用场景', points: ['实际应用案例', '行业应用实践', '成功经验分享', '效果评估'] },
+                { title: '技术方案', points: ['解决方案设计', '技术架构', '实施步骤', '最佳实践'] },
+                { title: '发展趋势', points: ['当前发展动态', '未来发展方向', '潜在突破点', '行业影响预测'] },
+                { title: '挑战与对策', points: ['面临的主要挑战', '解决方案和策略', '风险管理', '持续改进方向'] },
+                { title: '案例分析', points: ['典型案例介绍', '成功要素分析', '经验教训总结', '可借鉴之处'] },
+                { title: '实施路径', points: ['分步实施计划', '资源需求分析', '时间规划', '预期成果'] }
+            ];
+
+            for (let i = 0; i < Math.min(count, baseTopics.length); i++) {
+                topics.push(baseTopics[i]);
+            }
+
+            return topics;
+        }
+
+        function getStyleName(style) {
+            const names = {
+                professional: '专业商务',
+                creative: '创意设计',
+                academic: '学术研究',
+                simple: '简约风格'
+            };
+            return names[style] || style;
+        }
+
+        function renderSlides() {
+            const wrapper = document.getElementById('slidesWrapper');
+            wrapper.innerHTML = '';
+
+            slides.forEach((slide, index) => {
+                const slideDiv = document.createElement('div');
+                slideDiv.className = 'slide';
+                slideDiv.innerHTML = `
+                    <div class="slide-header">
+                        <span class="slide-number">第 ${index + 1} 页</span>
+                        <div class="slide-actions">
+                            <button class="btn-edit" onclick="editSlide(${index})">编辑</button>
+                            <button class="btn-delete" onclick="deleteSlide(${index})">删除</button>
+                        </div>
+                    </div>
+                    <div class="slide-content">
+                        <div class="slide-title">${slide.title}</div>
+                        ${slide.content}
+                    </div>
+                `;
+                wrapper.appendChild(slideDiv);
+            });
+        }
+
+        function editSlide(index) {
+            const slide = slides[index];
+            const newTitle = prompt('编辑标题：', slide.title);
+            if (newTitle !== null && newTitle.trim() !== '') {
+                slides[index].title = newTitle.trim();
+                renderSlides();
+            }
+        }
+
+        function deleteSlide(index) {
+            if (confirm(`确定要删除第 ${index + 1} 页吗？`)) {
+                slides.splice(index, 1);
+                renderSlides();
+                if (slides.length === 0) {
+                    document.getElementById('slidesContainer').style.display = 'none';
+                }
+            }
+        }
+
+        function clearAll() {
+            if (confirm('确定要清空所有内容吗？')) {
+                document.getElementById('topic').value = '';
+                document.getElementById('additionalInfo').value = '';
+                document.getElementById('promptDisplay').innerHTML = '<p><em>填写左侧参数后，点击"生成幻灯片"将显示用于 AI 的提示词。</em></p>';
+                slides = [];
+                document.getElementById('slidesContainer').style.display = 'none';
+            }
+        }
+
+        function copyPrompt() {
+            const promptText = document.getElementById('promptDisplay').innerText;
+            navigator.clipboard.writeText(promptText).then(() => {
+                alert('提示词已复制到剪贴板！');
+            }).catch(err => {
+                alert('复制失败，请手动复制。');
+            });
+        }
+
+        function exportToPPTX() {
+            if (slides.length === 0) {
+                alert('请先生成幻灯片！');
+                return;
+            }
+
+            // Generate PPTX framework data
+            const pptxData = {
+                title: document.getElementById('topic').value,
+                slideCount: slides.length,
+                style: document.getElementById('style').value,
+                slides: slides.map((slide, index) => ({
+                    slideNumber: index + 1,
+                    title: slide.title,
+                    content: slide.content.replace(/<[^>]*>/g, '') // Strip HTML
+                })),
+                metadata: {
+                    generated: new Date().toISOString(),
+                    prompt: document.getElementById('promptDisplay').innerText
+                }
+            };
+
+            // Create downloadable JSON file
+            const dataStr = JSON.stringify(pptxData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `ppt-framework-${Date.now()}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            alert('PPTX框架数据已导出为JSON文件！\n您可以使用此文件配合其他工具生成最终的PPTX文件。');
+        }
+    </script>
+</body>
+</html>
