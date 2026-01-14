@@ -2,9 +2,7 @@ import { state, dom } from './config.js';
 import { updateCache, renderLayers } from './renderer.js';
 import { fetchPageHtml, fetchMotherHtml } from './api.js';
 import { showOverlay, hideOverlay, updateProgress } from './utils.js';
-import { initElement } from './interaction.js'; // 重新绑定事件用
 
-// 配置 PPTX 库
 function configurePPTX(pptx) {
     pptx.defineLayout({ name:'WIDE', width:13.3333, height:7.5 });
     pptx.layout = 'WIDE';
@@ -12,9 +10,8 @@ function configurePPTX(pptx) {
     pptx.title = 'Presentation';
 }
 
-// 导出可编辑 PPT
 export async function exportEditPPT() {
-    updateCache(); // 同步当前编辑状态到缓存
+    updateCache();
     const pptx = new PptxGenJS();
     configurePPTX(pptx);
 
@@ -22,10 +19,8 @@ export async function exportEditPPT() {
         const slide = pptx.addSlide();
         const tempContainer = document.createElement('div');
 
-        // 获取页面源码
+        // ... (获取页面源码、合并母版、提取内容逻辑保持不变) ...
         let htmlContent = state.pageCache[i] || await fetchPageHtml(i);
-        
-        // 解析 DOM 获取结构
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlContent, 'text/html');
         
@@ -35,19 +30,18 @@ export async function exportEditPPT() {
             const mHtml = await fetchMotherHtml(motherRef.getAttribute('data-src'));
             const mDiv = document.createElement('div');
             mDiv.innerHTML = mHtml;
-            // 页码
             const pNum = mDiv.querySelector('#dynamic-page-num');
             if(pNum) pNum.innerText = i;
             Array.from(mDiv.children).forEach(c => tempContainer.appendChild(c));
             motherRef.remove();
         }
 
-        // 提取内容
+        // 提取备注
         const notesDiv = doc.querySelector('.speaker-notes');
         const notesText = notesDiv?.innerText;
         notesDiv?.remove();
 
-        // 升级图片格式
+        // 升级图片格式 (Img -> Wrapper)
         doc.querySelectorAll('img.element').forEach(img => {
             const w = document.createElement('div');
             w.className = img.className; w.style.cssText = img.style.cssText;
@@ -55,7 +49,6 @@ export async function exportEditPPT() {
             img.parentNode.insertBefore(w, img);
             w.appendChild(img);
         });
-
         Array.from(doc.body.children).forEach(c => tempContainer.appendChild(c));
 
         // 转换元素为 PPTX 对象
@@ -77,13 +70,24 @@ export async function exportEditPPT() {
             if (el.classList.contains('shape-line')) { opts.fill = { color: "023163" }; }
             if (el.style.fontWeight === 'bold') opts.bold = true;
 
-            // 检查内容类型
+            // === 核心修复: 图片导出逻辑 ===
+            let imgSrc = null;
+            // 情况1: 是Wrapper容器，找里面的img
             const innerImg = el.querySelector('img');
-            if (innerImg) {
-                slide.addImage({ path: innerImg.getAttribute('src'), x: opts.x, y: opts.y, w: opts.w, h: opts.h });
-            } else if (el.tagName === 'IMG') {
-                slide.addImage({ path: el.getAttribute('src'), x: opts.x, y: opts.y, w: opts.w, h: opts.h });
-            } else if (el.classList.contains('shape-line')) {
+            if (innerImg) imgSrc = innerImg.getAttribute('src');
+            // 情况2: 本身就是img (母版里的情况)
+            else if (el.tagName === 'IMG') imgSrc = el.getAttribute('src');
+
+            if (imgSrc) {
+                // 判断是否是 Base64
+                if (imgSrc.startsWith('data:')) {
+                    slide.addImage({ data: imgSrc, x: opts.x, y: opts.y, w: opts.w, h: opts.h });
+                } else {
+                    // 普通路径 (Assets)
+                    slide.addImage({ path: imgSrc, x: opts.x, y: opts.y, w: opts.w, h: opts.h });
+                }
+            } 
+            else if (el.classList.contains('shape-line')) {
                 slide.addShape(pptx.ShapeType.rect, opts);
             } else if (el.classList.contains('shape-rect')) {
                 slide.addText(el.innerText.trim(), { ...opts, shape: pptx.ShapeType.rect });

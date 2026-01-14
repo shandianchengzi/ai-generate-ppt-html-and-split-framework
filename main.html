@@ -4,28 +4,46 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IoTSP PPT Editor Modular</title>
-    <!-- 第三方库 -->
+    <!-- 库文件 -->
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <!-- 样式表 -->
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-    <!-- 遮罩层 -->
+    <!-- 遮罩层 & Toast -->
     <div id="overlay">
         <div style="font-size: 24px; margin-bottom: 20px;" id="overlay-msg">处理中...</div>
         <div style="width: 400px; height: 6px; background: #444; border-radius: 3px; overflow:hidden;">
             <div id="progress-bar" style="width: 0%; height: 100%; background: #28a745; transition: 0.2s;"></div>
         </div>
     </div>
-
-    <!-- Toast 提示 -->
     <div id="toast">提示信息</div>
+
+    <!-- Prompt 生成弹窗 -->
+    <div id="prompt-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>生成 AI 提示词</span>
+                <span id="close-prompt-modal" style="cursor:pointer;">✕</span>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom:10px; font-size:14px; color:#666;">选择包含到 Prompt 的上下文信息：</p>
+                <label class="chk-group"><input type="checkbox" id="chk-html" checked> 包含当前页 HTML 代码</label>
+                <label class="chk-group"><input type="checkbox" id="chk-mothers" checked> 包含可用母版列表</label>
+                <label class="chk-group"><input type="checkbox" id="chk-assets" checked> 包含可用资源列表</label>
+                
+                <textarea id="prompt-extra-req" class="prompt-textarea" placeholder="在此输入你的具体修改需求 (可选)..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button id="copy-prompt-btn" class="btn-primary">生成并复制</button>
+            </div>
+        </div>
+    </div>
 
     <!-- 侧边栏 -->
     <div id="sidebar">
-        <div id="sidebar-header">IoTSP Editor (Modular)</div>
+        <div id="sidebar-header">IoTSP Editor Pro</div>
         <div id="sidebar-list">
             <div style="padding:20px; text-align:center; color:#999; font-size:13px;" id="loading-msg">Connecting...</div>
         </div>
@@ -36,13 +54,14 @@
         <div id="toolbar">
             <div class="tool-group">
                 <span style="font-size:18px; font-weight:bold; color:var(--accent);">PPT Editor</span>
-                <span style="font-size:12px; color:#666; margin-top:4px;">(ES6 Modules)</span>
             </div>
             <div class="tool-group">
                 <span id="page-indicator" style="font-size:14px; font-weight:bold;">Page 1</span>
-                <button class="save-btn">💾 保存本页</button>
-                <button class="secondary">📷 全图导出</button>
-                <button>📥 编辑导出</button>
+                <!-- 按钮组 (添加了 ID) -->
+                <button id="btn-prompt" style="background:#6f42c1;">✨ AI Prompt</button>
+                <button id="btn-save" class="save-btn">💾 保存本页</button>
+                <button id="btn-export-img" class="secondary">📷 全图导出</button>
+                <button id="btn-export-ppt">📥 编辑导出</button>
             </div>
         </div>
 

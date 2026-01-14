@@ -2,29 +2,56 @@ import http.server
 import socketserver
 import os
 import mimetypes
+import json # 新增
 
-PORT = 8080 # 如果冲突请改端口
+PORT = 8080
 
 class PPTRequestHandler(http.server.SimpleHTTPRequestHandler):
-    # 自动识别 .js, .css, .svg 等类型
     def guess_type(self, path):
         return mimetypes.guess_type(path)[0] or 'application/octet-stream'
+
+    def do_GET(self):
+        # 新增：资源列表 API
+        if self.path == '/api/resources':
+            try:
+                # 获取 mothers 列表
+                mothers = []
+                if os.path.exists('mothers'):
+                    mothers = [f for f in os.listdir('mothers') if f.endswith('.html')]
+                
+                # 获取 assets 列表 (支持常见图片格式)
+                assets = []
+                if os.path.exists('assets'):
+                    extensions = ('.png', '.jpg', '.jpeg', '.svg', '.gif')
+                    assets = [f for f in os.listdir('assets') if f.lower().endswith(extensions)]
+
+                response_data = {
+                    "mothers": mothers,
+                    "assets": assets
+                }
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(response_data).encode('utf-8'))
+            except Exception as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(str(e).encode())
+        else:
+            # 默认处理静态文件
+            super().do_GET()
 
     def do_POST(self):
         # 处理保存请求
         if self.path.startswith('/pages/'):
             try:
-                # 获取相对路径
                 file_path = self.path.strip('/')
-                
-                # 简单安全检查，防止目录遍历
-                if '..' in file_path:
-                    raise ValueError("Invalid path")
+                if '..' in file_path: raise ValueError("Invalid path")
 
                 content_length = int(self.headers['Content-Length'])
                 post_data = self.rfile.read(content_length)
                 
-                # 写入文件
                 os.makedirs(os.path.dirname(file_path), exist_ok=True)
                 with open(file_path, 'wb') as f:
                     f.write(post_data)
@@ -33,7 +60,6 @@ class PPTRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b"Saved")
                 print(f"Saved: {file_path}")
-                
             except Exception as e:
                 self.send_response(500)
                 self.end_headers()
@@ -42,11 +68,8 @@ class PPTRequestHandler(http.server.SimpleHTTPRequestHandler):
         else:
             self.send_error(404)
 
-# 允许地址重用
 socketserver.TCPServer.allow_reuse_address = True
-
 print(f"Server running at http://localhost:{PORT}/main.html")
-print(f"Ensure 'mothers' folder and 'pages' folder exist.")
 
 try:
     with socketserver.TCPServer(("", PORT), PPTRequestHandler) as httpd:
