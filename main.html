@@ -3,511 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IoTSP PPT Editor Pro (Image Resizable)</title>
+    <title>IoTSP PPT Editor Modular</title>
+    <!-- 第三方库 -->
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <style>
-        /* === 样式配置 === */
-        :root {
-            --primary: #000000;
-            --accent: #023163;
-            --bg: #e0e4e8;
-            --slide-w: 1280px;
-            --slide-h: 720px;
-            --sidebar-w: 240px;
-            --font-stack: "KaiTi", "楷体", "STKaiti", "华文楷体", "Microsoft YaHei", serif;
-        }
-        
-        body { margin: 0; display: flex; height: 100vh; background: var(--bg); font-family: var(--font-stack); overflow: hidden; user-select: none; }
-
-        /* 侧边栏 */
-        #sidebar { width: var(--sidebar-w); background: white; border-right: 1px solid #ccc; display: flex; flex-direction: column; z-index: 50; }
-        #sidebar-header { padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; color: var(--accent); }
-        #sidebar-list { flex: 1; overflow-y: auto; padding: 15px; }
-        
-        .thumb { position: relative; width: 100%; padding-top: 56.25%; background: #fff; border: 2px solid #eee; cursor: pointer; margin-bottom: 15px; border-radius: 6px; transition: 0.2s; overflow: hidden; }
-        .thumb-content { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #666; }
-        .thumb.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(2, 49, 99, 0.2); }
-        .thumb.active .thumb-content { color: var(--accent); font-weight: bold; background: #f0f4f8; }
-
-        /* 主区域 */
-        #main { flex: 1; display: flex; flex-direction: column; height: 100vh; }
-        #toolbar { height: 60px; background: white; border-bottom: 1px solid #ccc; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 60; }
-        .tool-group { display: flex; align-items: center; gap: 15px; }
-        button { background: var(--accent); color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; transition: 0.2s; font-family: sans-serif; font-size: 14px; }
-        button:hover { opacity: 0.9; }
-        button.save-btn { background: #28a745; }
-        button.secondary { background: #6c757d; }
-
-        /* 画布系统 */
-        #workspace { flex: 1; overflow: auto; display: flex; flex-direction: column; align-items: center; padding: 40px; background: var(--bg); }
-        
-        #canvas-wrapper { 
-            position: relative; width: var(--slide-w); height: var(--slide-h); 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #ccc; 
-            background: white; margin-bottom: 20px; flex-shrink: 0; outline: none;
-        }
-
-        #canvas { width: 100%; height: 100%; position: relative; overflow: hidden; }
-
-        /* 图层分离 */
-        #mother-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
-        #content-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; }
-
-        /* 元素通用 */
-        .element { position: absolute; box-sizing: border-box; font-family: var(--font-stack); line-height: 1.4; transform-origin: top left; }
-        
-        /* 核心修复：图片容器内的图片样式 */
-        .element-img { 
-            width: 100%; height: 100%; object-fit: contain; 
-            pointer-events: none; /* 让鼠标事件穿透到父级div，方便拖拽 */
-            display: block;
-        }
-
-        /* 编辑状态 */
-        #content-layer .element { cursor: move; }
-        #content-layer .element:hover { outline: 1px dashed #999; }
-        #content-layer .element.selected { outline: 2px solid var(--accent); z-index: 100; }
-        
-        /* 缩放手柄 */
-        .resizer { 
-            width: 16px; height: 16px; background: var(--accent); 
-            position: absolute; right: -8px; bottom: -8px; 
-            cursor: se-resize; display: none; z-index: 101; 
-            border-radius: 50%; border: 3px solid white; 
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3); 
-        }
-        #content-layer .element.selected .resizer { display: block; }
-
-        /* 备注 */
-        #notes-panel { width: var(--slide-w); background: white; border: 1px solid #ccc; border-radius: 6px; display: flex; flex-direction: column; margin-bottom: 40px; flex-shrink: 0; }
-        #notes-header { padding: 12px 20px; background: #f8f9fa; border-bottom: 1px solid #eee; font-size: 14px; font-weight: bold; color: #555; }
-        #notes-input { width: 100%; height: 100px; padding: 15px; border: none; resize: none; font-family: sans-serif; font-size: 14px; outline: none; }
-
-        /* CSS类库 */
-        .fs-title { font-size: 48px; font-weight: bold; color: var(--primary); }
-        .fs-sub { font-size: 36px; color: var(--primary); }
-        .fs-body { font-size: 28px; color: var(--primary); }
-        .fs-small { font-size: 22px; color: var(--primary); }
-        .bg-accent { background-color: var(--accent); color: white; display: flex; align-items: center; justify-content: center; text-align: center; }
-        .color-accent { color: var(--accent); }
-        .shape-rect { border: 3px solid var(--accent); background: white; display: flex; align-items: center; justify-content: center; text-align: center; }
-        .shape-line { background: var(--accent); }
-
-        #toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 30px; opacity: 0; transition: 0.3s; pointer-events: none; z-index: 2000; }
-        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 999; display: none; align-items: center; justify-content: center; flex-direction: column; color: white; }
-    </style>
+    <!-- 样式表 -->
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-<div id="overlay">
-    <div style="font-size: 24px; margin-bottom: 20px;">处理中...</div>
-    <div style="width: 400px; height: 6px; background: #444; border-radius: 3px; overflow:hidden;">
-        <div id="progress-bar" style="width: 0%; height: 100%; background: #28a745; transition: 0.2s;"></div>
-    </div>
-</div>
-
-<div id="toast">提示信息</div>
-
-<div id="sidebar">
-    <div id="sidebar-header">IoTSP Editor (Resizer Fixed)</div>
-    <div id="sidebar-list">
-        <div style="padding:20px; text-align:center; color:#999; font-size:13px;" id="loading-msg">Connecting...</div>
-    </div>
-</div>
-
-<div id="main">
-    <div id="toolbar">
-        <div class="tool-group">
-            <span style="font-size:18px; font-weight:bold; color:var(--accent);">PPT Editor</span>
-            <span style="font-size:12px; color:#666; margin-top:4px;">(图片可拖拽缩放)</span>
-        </div>
-        <div class="tool-group">
-            <span id="page-indicator" style="font-size:14px; font-weight:bold;">Page 1</span>
-            <button class="save-btn" onclick="saveCurrentPageToServer()">💾 保存本页</button>
-            <button class="secondary" onclick="exportImagePPT()">📷 全图导出</button>
-            <button onclick="exportEditPPT()">📥 编辑导出</button>
+    <!-- 遮罩层 -->
+    <div id="overlay">
+        <div style="font-size: 24px; margin-bottom: 20px;" id="overlay-msg">处理中...</div>
+        <div style="width: 400px; height: 6px; background: #444; border-radius: 3px; overflow:hidden;">
+            <div id="progress-bar" style="width: 0%; height: 100%; background: #28a745; transition: 0.2s;"></div>
         </div>
     </div>
 
-    <div id="workspace">
-        <div id="canvas-wrapper" tabindex="0">
-            <div id="canvas">
-                <div id="mother-layer"></div>
-                <div id="content-layer"></div>
+    <!-- Toast 提示 -->
+    <div id="toast">提示信息</div>
+
+    <!-- 侧边栏 -->
+    <div id="sidebar">
+        <div id="sidebar-header">IoTSP Editor (Modular)</div>
+        <div id="sidebar-list">
+            <div style="padding:20px; text-align:center; color:#999; font-size:13px;" id="loading-msg">Connecting...</div>
+        </div>
+    </div>
+
+    <!-- 主界面 -->
+    <div id="main">
+        <div id="toolbar">
+            <div class="tool-group">
+                <span style="font-size:18px; font-weight:bold; color:var(--accent);">PPT Editor</span>
+                <span style="font-size:12px; color:#666; margin-top:4px;">(ES6 Modules)</span>
+            </div>
+            <div class="tool-group">
+                <span id="page-indicator" style="font-size:14px; font-weight:bold;">Page 1</span>
+                <button class="save-btn">💾 保存本页</button>
+                <button class="secondary">📷 全图导出</button>
+                <button>📥 编辑导出</button>
             </div>
         </div>
-        <div id="notes-panel">
-            <div id="notes-header">🎤 讲演备注</div>
-            <textarea id="notes-input" placeholder="输入备注..."></textarea>
+
+        <div id="workspace">
+            <div id="canvas-wrapper" tabindex="0">
+                <div id="canvas">
+                    <div id="mother-layer"></div>
+                    <div id="content-layer"></div>
+                </div>
+            </div>
+            <div id="notes-panel">
+                <div id="notes-header">🎤 讲演备注</div>
+                <textarea id="notes-input" placeholder="输入备注..."></textarea>
+            </div>
         </div>
     </div>
-</div>
 
-<script>
-    let TOTAL_PAGES = 0;
-    let currentPage = 1;
-    let pageCache = {}; 
-
-    const motherLayer = document.getElementById('mother-layer');
-    const contentLayer = document.getElementById('content-layer');
-    const notesInput = document.getElementById('notes-input');
-    const toast = document.getElementById('toast');
-    const progressBar = document.getElementById('progress-bar');
-    const overlay = document.getElementById('overlay');
-
-    window.onload = async () => { 
-        await detectPages(); 
-        setupInteractions();
-    };
-
-    function showToast(msg) {
-        toast.innerText = msg;
-        toast.style.opacity = 1;
-        toast.style.top = '80px';
-        setTimeout(() => { toast.style.opacity = 0; toast.style.top = '70px'; }, 2000);
-    }
-
-    // === 1. 初始化逻辑 ===
-    async function detectPages() {
-        let count = 0, maxTry = 50; 
-        while (count < maxTry) {
-            try {
-                const res = await fetch(`pages/${count + 1}.html`, { method: 'HEAD' });
-                if (res.ok) count++; else break;
-            } catch (e) { break; }
-        }
-        TOTAL_PAGES = count;
-        if (TOTAL_PAGES === 0) {
-            document.getElementById('sidebar-list').innerHTML = `<div style="padding:20px; color:red;">No Pages Found.<br>Check server.py</div>`;
-            return;
-        }
-        renderSidebar();
-        loadSlide(1);
-    }
-
-    function renderSidebar() {
-        const list = document.getElementById('sidebar-list');
-        list.innerHTML = '';
-        for (let i = 1; i <= TOTAL_PAGES; i++) {
-            let div = document.createElement('div');
-            div.className = 'thumb';
-            div.innerHTML = `<div class="thumb-content"><span>P${i}</span></div>`;
-            div.onclick = () => loadSlide(i);
-            div.id = `thumb-${i}`;
-            list.appendChild(div);
-        }
-    }
-
-    // === 2. 加载核心逻辑 ===
-    async function loadSlide(index) {
-        if (currentPage > 0 && contentLayer.innerHTML) updateCacheOnly();
-
-        document.querySelector('.thumb.active')?.classList.remove('active');
-        document.getElementById(`thumb-${index}`)?.classList.add('active');
-        document.getElementById('page-indicator').innerText = `第 ${index} / ${TOTAL_PAGES} 页`;
-        currentPage = index;
-
-        let htmlContent = pageCache[index];
-        if (!htmlContent) {
-            try {
-                const res = await fetch(`pages/${index}.html?t=${Date.now()}`);
-                htmlContent = await res.text();
-            } catch (e) { htmlContent = ""; }
-        }
-        renderLayers(htmlContent, index);
-    }
-
-    async function renderLayers(pageHtml, pageIndex) {
-        motherLayer.innerHTML = '';
-        contentLayer.innerHTML = '';
-
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(pageHtml, 'text/html');
-
-        // A. 提取备注
-        const notesDiv = doc.querySelector('.speaker-notes');
-        notesInput.value = notesDiv ? notesDiv.innerText.trim() : "";
-        notesDiv?.remove();
-
-        // B. 母版处理
-        const motherRef = doc.querySelector('.mother-ref');
-        if (motherRef) {
-            const motherSrc = motherRef.getAttribute('data-src');
-            try {
-                const res = await fetch(`${motherSrc}?t=${Date.now()}`);
-                if (res.ok) {
-                    motherLayer.innerHTML = await res.text();
-                    const pageNumEl = motherLayer.querySelector('#dynamic-page-num');
-                    if (pageNumEl) pageNumEl.innerText = pageIndex;
-                }
-            } catch(e) {}
-            motherRef.remove();
-        }
-
-        // C. 内容加载 (核心修复：自动升级 img 标签为 div容器)
-        while (doc.body.firstChild) {
-            const node = doc.body.firstChild;
-            if (node.tagName === 'IMG' && node.classList.contains('element')) {
-                // 旧格式：直接是 img，无法添加子resizer -> 转换为容器
-                const wrapper = document.createElement('div');
-                wrapper.className = node.className; // 复制 element 类
-                wrapper.style.cssText = node.style.cssText; // 复制位置大小
-                
-                // 重置图片样式
-                node.className = 'element-img';
-                node.style.cssText = ''; 
-                
-                wrapper.appendChild(node);
-                contentLayer.appendChild(wrapper);
-            } else {
-                contentLayer.appendChild(node);
-            }
-        }
-
-        document.querySelectorAll('#content-layer .element').forEach(initElement);
-    }
-
-    function updateCacheOnly() {
-        pageCache[currentPage] = serializeCurrentPage();
-    }
-
-    function serializeCurrentPage() {
-        let outputHtml = "";
-        if (motherLayer.innerHTML.trim() !== "") {
-            outputHtml += `<div class="mother-ref" data-src="mothers/base.html"></div>\n`;
-        }
-
-        const cloneContent = contentLayer.cloneNode(true);
-        cloneContent.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
-        cloneContent.querySelectorAll('.resizer').forEach(el => el.remove());
-        outputHtml += cloneContent.innerHTML;
-
-        if (notesInput.value.trim()) {
-            outputHtml += `\n<div class="speaker-notes" style="display:none;">${notesInput.value}</div>`;
-        }
-        return outputHtml;
-    }
-
-    async function saveCurrentPageToServer() {
-        const htmlContent = serializeCurrentPage();
-        try {
-            showToast('Saving...');
-            const res = await fetch(`pages/${currentPage}.html`, {
-                method: 'POST', headers: { 'Content-Type': 'text/html' }, body: htmlContent
-            });
-            if (res.ok) {
-                showToast('✅ Saved');
-                pageCache[currentPage] = htmlContent;
-                document.querySelectorAll('#content-layer .element').forEach(initElement);
-            } else { showToast('❌ Error'); }
-        } catch (e) { showToast('❌ Error'); }
-    }
-
-    // === 3. 交互逻辑 (支持图片缩放) ===
-    function setupInteractions() {
-        const wrapper = document.getElementById('canvas-wrapper');
-
-        // 粘贴图片
-        wrapper.addEventListener('paste', (e) => {
-            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-            for (let item of items) {
-                if (item.kind === 'file' && item.type.includes('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = (evt) => createImageElement(evt.target.result);
-                    reader.readAsDataURL(item.getAsFile());
-                }
-            }
-        });
-
-        // 删除
-        wrapper.addEventListener('keydown', (e) => {
-            if (e.key === 'Delete' || e.key === 'Backspace') {
-                const selected = contentLayer.querySelector('.element.selected');
-                if (selected) { selected.remove(); showToast('已删除'); }
-            }
-        });
-    }
-
-    // 创建图片元素 (容器包裹模式)
-    function createImageElement(src) {
-        // 1. 创建外部容器 div (负责定位和大小)
-        const wrapper = document.createElement('div');
-        wrapper.className = 'element';
-        wrapper.style.left = '35%'; wrapper.style.top = '30%'; 
-        wrapper.style.width = '30%'; wrapper.style.height = '30%'; // 默认宽高
-        
-        // 2. 创建内部图片 img (负责显示，填满容器)
-        const img = document.createElement('img');
-        img.src = src;
-        img.className = 'element-img'; // css: width:100%; height:100%; object-fit:contain;
-        
-        wrapper.appendChild(img);
-        contentLayer.appendChild(wrapper);
-        initElement(wrapper);
-        showToast('图片已粘贴');
-    }
-
-    function initElement(el) {
-        el.querySelector('.resizer')?.remove();
-        const resizer = document.createElement('div');
-        resizer.className = 'resizer';
-        el.appendChild(resizer);
-
-        el.onmousedown = (e) => {
-            if (e.target === resizer) return;
-            document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
-            el.classList.add('selected');
-            
-            let startX = e.clientX, startY = e.clientY;
-            let startLeft = el.offsetLeft, startTop = el.offsetTop;
-            let parentW = el.parentElement.offsetWidth, parentH = el.parentElement.offsetHeight;
-
-            const onMove = (ev) => {
-                el.style.left = ((startLeft + ev.clientX - startX) / parentW * 100) + '%';
-                el.style.top = ((startTop + ev.clientY - startY) / parentH * 100) + '%';
-            };
-            const onUp = () => {
-                window.removeEventListener('mousemove', onMove);
-                window.removeEventListener('mouseup', onUp);
-            };
-            window.addEventListener('mousemove', onMove);
-            window.addEventListener('mouseup', onUp);
-        };
-
-        resizer.onmousedown = (e) => {
-            e.stopPropagation();
-            let startX = e.clientX, startY = e.clientY;
-            let startW = el.offsetWidth, startH = el.offsetHeight;
-            let parentW = el.parentElement.offsetWidth, parentH = el.parentElement.offsetHeight;
-
-            const onResize = (ev) => {
-                const newW = startW + (ev.clientX - startX);
-                const newH = startH + (ev.clientY - startY);
-                el.style.width = (newW / parentW * 100) + '%';
-                el.style.height = (newH / parentH * 100) + '%';
-            };
-            const onUp = () => {
-                window.removeEventListener('mousemove', onResize);
-                window.removeEventListener('mouseup', onUp);
-            };
-            window.addEventListener('mousemove', onResize);
-            window.addEventListener('mouseup', onUp);
-        };
-    }
-
-    // === 4. 导出逻辑 (适配 Wrapper 结构) ===
-    function configurePPTX(pptx) {
-        pptx.defineLayout({ name:'WIDE', width:13.3333, height:7.5 });
-        pptx.layout = 'WIDE';
-    }
-
-    async function exportEditPPT() {
-        updateCacheOnly();
-        const pptx = new PptxGenJS();
-        configurePPTX(pptx);
-
-        for (let i = 1; i <= TOTAL_PAGES; i++) {
-            const slide = pptx.addSlide();
-            const tempContainer = document.createElement('div');
-            
-            // A. 母版合并
-            let contentHtml = pageCache[i];
-            if (contentHtml && contentHtml.includes('mother-ref')) {
-                try {
-                    const motherRes = await fetch('mothers/base.html');
-                    const mDiv = document.createElement('div');
-                    mDiv.innerHTML = await motherRes.text();
-                    const pNum = mDiv.querySelector('#dynamic-page-num');
-                    if(pNum) pNum.innerText = i;
-                    Array.from(mDiv.children).forEach(c => tempContainer.appendChild(c));
-                } catch(e){}
-            }
-
-            // B. 内容合并
-            const cDiv = document.createElement('div');
-            cDiv.innerHTML = contentHtml || "";
-            cDiv.querySelector('.mother-ref')?.remove();
-            const notesText = cDiv.querySelector('.speaker-notes')?.innerText;
-            cDiv.querySelector('.speaker-notes')?.remove();
-            
-            // 处理旧格式 Img -> Wrapper (为了导出统一)
-            cDiv.querySelectorAll('img.element').forEach(img => {
-                const wrapper = document.createElement('div');
-                wrapper.className = img.className; wrapper.style.cssText = img.style.cssText;
-                img.className = 'element-img'; img.style.cssText = '';
-                img.parentNode.insertBefore(wrapper, img);
-                wrapper.appendChild(img);
-            });
-
-            Array.from(cDiv.children).forEach(c => tempContainer.appendChild(c));
-
-            // C. 生成 PPTX
-            tempContainer.querySelectorAll('.element').forEach(el => {
-                const style = el.style;
-                const opts = {
-                    x: style.left || "0", y: style.top || "0", w: style.width, h: style.height,
-                    fontFace: "楷体", color: "000000"
-                };
-                
-                // 样式映射
-                if (el.classList.contains('fs-title')) { opts.fontSize = 44; opts.bold = true; }
-                else if (el.classList.contains('fs-sub')) { opts.fontSize = 32; }
-                else if (el.classList.contains('fs-body')) { opts.fontSize = 24; }
-                else if (el.classList.contains('fs-small')) { opts.fontSize = 20; }
-                if (el.classList.contains('color-accent')) opts.color = "023163";
-                if (el.classList.contains('bg-accent')) { opts.fill = { color: "023163" }; opts.color = "FFFFFF"; }
-                if (el.classList.contains('shape-rect')) { opts.line = { color: "023163", width: 2 }; }
-                if (el.classList.contains('shape-line')) { opts.fill = { color: "023163" }; }
-                if (el.style.fontWeight === 'bold') opts.bold = true;
-
-                // 核心：检查是否是图片容器
-                const innerImg = el.querySelector('img');
-                if (innerImg) {
-                    slide.addImage({ path: innerImg.getAttribute('src'), x: opts.x, y: opts.y, w: opts.w, h: opts.h });
-                } else if (el.tagName === 'IMG') {
-                    // 兼容母版里的直接 img
-                    slide.addImage({ path: el.getAttribute('src'), x: opts.x, y: opts.y, w: opts.w, h: opts.h });
-                } else if (el.classList.contains('shape-line')) {
-                    slide.addShape(pptx.ShapeType.rect, opts);
-                } else if (el.classList.contains('shape-rect')) {
-                    slide.addText(el.innerText.trim(), { ...opts, shape: pptx.ShapeType.rect });
-                } else {
-                    slide.addText(el.innerText.trim(), opts);
-                }
-            });
-
-            if (notesText) slide.addNotes(notesText.trim());
-        }
-        pptx.writeFile({ fileName: "IoTSP_Export_Edit.pptx" });
-    }
-
-    async function exportImagePPT() {
-        updateCacheOnly();
-        const originalPage = currentPage;
-        overlay.style.display = 'flex';
-        const pptx = new PptxGenJS();
-        configurePPTX(pptx);
-        
-        for (let i = 1; i <= TOTAL_PAGES; i++) {
-            progressBar.style.width = `${(i / TOTAL_PAGES) * 100}%`;
-            await loadSlide(i);
-            
-            document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
-            document.querySelectorAll('.resizer').forEach(el => el.style.display = 'none');
-            await new Promise(r => setTimeout(r, 150));
-
-            try {
-                const canvasEl = await html2canvas(document.getElementById('canvas'), { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
-                const slide = pptx.addSlide();
-                slide.addImage({ data: canvasEl.toDataURL('image/png'), x: 0, y: 0, w: "100%", h: "100%" });
-                if (notesInput.value.trim()) slide.addNotes(notesInput.value.trim());
-            } catch (err) { console.error(err); }
-        }
-        overlay.style.display = 'none';
-        loadSlide(originalPage);
-        pptx.writeFile({ fileName: "IoTSP_Export_Img.pptx" });
-    }
-</script>
+    <!-- 入口脚本 -->
+    <script type="module" src="js/app.js"></script>
 </body>
 </html>
