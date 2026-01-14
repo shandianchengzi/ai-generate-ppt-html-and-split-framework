@@ -355,6 +355,13 @@
     <script>
         let slides = [];
 
+        // HTML escape function to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         function generateSlides() {
             const topic = document.getElementById('topic').value.trim();
             const slideCount = parseInt(document.getElementById('slideCount').value);
@@ -419,10 +426,10 @@
 
             // Title slide
             newSlides.push({
-                title: topic,
+                title: escapeHtml(topic),
                 content: `<div class="slide-body">
                     <h3 style="text-align: center; margin-top: 20px;">一个专业的演示文稿</h3>
-                    <p style="text-align: center; margin-top: 10px; font-size: 0.9em; color: #888;">演示风格：${getStyleName(style)}</p>
+                    <p style="text-align: center; margin-top: 10px; font-size: 0.9em; color: #888;">演示风格：${escapeHtml(getStyleName(style))}</p>
                 </div>`
             });
 
@@ -444,7 +451,7 @@
                 title: '总结与展望',
                 content: `<div class="slide-body">
                     <ul style="list-style-position: inside; text-align: left;">
-                        <li style="margin-bottom: 15px;">回顾了${topic}的关键要点</li>
+                        <li style="margin-bottom: 15px;">回顾了${escapeHtml(topic)}的关键要点</li>
                         <li style="margin-bottom: 15px;">探讨了重要的发展方向</li>
                         <li style="margin-bottom: 15px;">展望未来的发展趋势</li>
                         <li style="margin-bottom: 15px;">感谢您的观看！</li>
@@ -492,19 +499,49 @@
             slides.forEach((slide, index) => {
                 const slideDiv = document.createElement('div');
                 slideDiv.className = 'slide';
-                slideDiv.innerHTML = `
-                    <div class="slide-header">
-                        <span class="slide-number">第 ${index + 1} 页</span>
-                        <div class="slide-actions">
-                            <button class="btn-edit" onclick="editSlide(${index})">编辑</button>
-                            <button class="btn-delete" onclick="deleteSlide(${index})">删除</button>
-                        </div>
-                    </div>
-                    <div class="slide-content">
-                        <div class="slide-title">${slide.title}</div>
-                        ${slide.content}
-                    </div>
-                `;
+                
+                // Create slide header
+                const slideHeader = document.createElement('div');
+                slideHeader.className = 'slide-header';
+                
+                const slideNumber = document.createElement('span');
+                slideNumber.className = 'slide-number';
+                slideNumber.textContent = `第 ${index + 1} 页`;
+                
+                const slideActions = document.createElement('div');
+                slideActions.className = 'slide-actions';
+                
+                const editBtn = document.createElement('button');
+                editBtn.className = 'btn-edit';
+                editBtn.textContent = '编辑';
+                editBtn.addEventListener('click', () => editSlide(index));
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn-delete';
+                deleteBtn.textContent = '删除';
+                deleteBtn.addEventListener('click', () => deleteSlide(index));
+                
+                slideActions.appendChild(editBtn);
+                slideActions.appendChild(deleteBtn);
+                slideHeader.appendChild(slideNumber);
+                slideHeader.appendChild(slideActions);
+                
+                // Create slide content
+                const slideContent = document.createElement('div');
+                slideContent.className = 'slide-content';
+                
+                const slideTitle = document.createElement('div');
+                slideTitle.className = 'slide-title';
+                slideTitle.textContent = slide.title; // Safe - uses textContent
+                
+                const slideBody = document.createElement('div');
+                slideBody.innerHTML = slide.content; // Content is already sanitized during generation
+                
+                slideContent.appendChild(slideTitle);
+                slideContent.appendChild(slideBody);
+                
+                slideDiv.appendChild(slideHeader);
+                slideDiv.appendChild(slideContent);
                 wrapper.appendChild(slideDiv);
             });
         }
@@ -513,7 +550,7 @@
             const slide = slides[index];
             const newTitle = prompt('编辑标题：', slide.title);
             if (newTitle !== null && newTitle.trim() !== '') {
-                slides[index].title = newTitle.trim();
+                slides[index].title = escapeHtml(newTitle.trim());
                 renderSlides();
             }
         }
@@ -539,12 +576,39 @@
         }
 
         function copyPrompt() {
-            const promptText = document.getElementById('promptDisplay').innerText;
-            navigator.clipboard.writeText(promptText).then(() => {
+            const promptText = document.getElementById('promptDisplay').textContent;
+            
+            // Try modern clipboard API first
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(promptText).then(() => {
+                    alert('提示词已复制到剪贴板！');
+                }).catch(err => {
+                    // Fallback to manual copy
+                    fallbackCopyToClipboard(promptText);
+                });
+            } else {
+                // Fallback for browsers that don't support clipboard API
+                fallbackCopyToClipboard(promptText);
+            }
+        }
+        
+        function fallbackCopyToClipboard(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
                 alert('提示词已复制到剪贴板！');
-            }).catch(err => {
+            } catch (err) {
                 alert('复制失败，请手动复制。');
-            });
+            }
+            
+            document.body.removeChild(textArea);
         }
 
         function exportToPPTX() {
