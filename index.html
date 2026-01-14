@@ -321,8 +321,8 @@
                     <label for="additionalInfo">补充说明（可选）</label>
                     <textarea id="additionalInfo" placeholder="输入任何额外的要求或重点内容..."></textarea>
                 </div>
-                <button class="btn" onclick="generateSlides()">🚀 生成幻灯片</button>
-                <button class="btn btn-secondary" onclick="clearAll()">🗑️ 清空所有</button>
+                <button class="btn" id="generateBtn">🚀 生成幻灯片</button>
+                <button class="btn btn-secondary" id="clearBtn">🗑️ 清空所有</button>
             </div>
 
             <div class="panel">
@@ -330,8 +330,8 @@
                 <div class="prompt-display" id="promptDisplay">
                     <p><em>填写左侧参数后，点击"生成幻灯片"将显示用于 AI 的提示词。</em></p>
                 </div>
-                <button class="btn btn-export" onclick="copyPrompt()">📋 复制提示词</button>
-                <button class="btn btn-export" onclick="exportToPPTX()">💾 导出为 PPTX 框架</button>
+                <button class="btn btn-export" id="copyPromptBtn">📋 复制提示词</button>
+                <button class="btn btn-export" id="exportBtn">💾 导出为 PPTX 框架</button>
             </div>
         </div>
 
@@ -378,7 +378,11 @@
 
             // Generate AI prompt
             const prompt = generatePrompt(topic, slideCount, style, additionalInfo);
-            document.getElementById('promptDisplay').innerHTML = `<pre>${prompt}</pre>`;
+            const promptDisplay = document.getElementById('promptDisplay');
+            promptDisplay.innerHTML = ''; // Clear existing content
+            const preElement = document.createElement('pre');
+            preElement.textContent = prompt; // Safe - uses textContent
+            promptDisplay.appendChild(preElement);
 
             // Simulate AI generation (in real app, this would call an AI API)
             setTimeout(() => {
@@ -647,6 +651,14 @@
 
             alert('PPTX框架数据已导出为JSON文件！\n您可以使用此文件配合其他工具生成最终的PPTX文件。');
         }
+
+        // Initialize event listeners when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('generateBtn').addEventListener('click', generateSlides);
+            document.getElementById('clearBtn').addEventListener('click', clearAll);
+            document.getElementById('copyPromptBtn').addEventListener('click', copyPrompt);
+            document.getElementById('exportBtn').addEventListener('click', exportToPPTX);
+        });
     </script>
 </body>
 </html>
