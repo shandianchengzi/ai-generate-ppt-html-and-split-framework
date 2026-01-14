@@ -441,10 +441,10 @@
             const contentTopics = generateContentTopics(topic, slideCount - 2);
             for (let i = 0; i < contentTopics.length; i++) {
                 newSlides.push({
-                    title: contentTopics[i].title,
+                    title: escapeHtml(contentTopics[i].title),
                     content: `<div class="slide-body">
                         <ul style="list-style-position: inside; text-align: left;">
-                            ${contentTopics[i].points.map(point => `<li style="margin-bottom: 15px;">${point}</li>`).join('')}
+                            ${contentTopics[i].points.map(point => `<li style="margin-bottom: 15px;">${escapeHtml(point)}</li>`).join('')}
                         </ul>
                     </div>`
                 });
