@@ -14,7 +14,16 @@
 *   **基础类**：所有可见元素必须添加 `class="element"`。
 *   **可编辑**：所有文本元素必须添加 `contenteditable="true"`。图片元素**不要**添加此属性。
 
-## 3. 样式类库 (Class Library)
+## 3. 母版系统 (Mother System)
+母版用于定义页面背景、Logo 和页码等只读元素。
+*   **引用方式**：在 HTML 的第一行添加引用标签。
+*   **标准母版**：`mothers/base.html` (包含右上角 Logo 和右下角动态页码)。
+*   **代码示例**：
+    ```html
+    <div class="mother-ref" data-src="mothers/base.html"></div>
+    ```
+
+## 4. 样式类库 (Class Library)
 请严格使用以下 CSS 类名来控制字体大小和颜色：
 
 | 类名 | 视觉效果 | 推荐场景 |
@@ -28,12 +37,12 @@
 | `shape-rect` | 深蓝边框(3px) | 卡片 / 文本框 / 区域容器 |
 | `shape-line` | 深蓝填充 | 分割线 / 进度条 / 装饰条 |
 
-## 4. 资源引用规范 (Assets)
+## 5. 资源引用规范 (Assets)
+*   **图片容器化**：图片应被包裹在 div 中以便缩放（编辑器会自动处理，生成代码时直接写 `img` 标签即可，或者写 `div > img` 结构）。
 *   **本地图片**：使用相对路径 `src="assets/文件名"`。
-*   **Logo**：如果你需要在页面上放置 Logo，请插入：
-    `<img class="element" src="assets/logo.svg" style="left:88%; top:5%; width:10%; height:auto;">`
+*   **Logo**：通常由母版处理，除非需要特殊展示。
 
-## 5. 讲演备注 (Speaker Notes)
+## 6. 讲演备注 (Speaker Notes)
 在 HTML 代码的最后，添加一个隐藏的 div 存储备注：
 ```html
 <div class="speaker-notes" style="display:none;">
@@ -43,36 +52,31 @@
 
 ---
 
-## 6. 任务示例 (Few-Shot)
+## 7. 任务示例 (Few-Shot)
 
 ### 用户输入：
 > 生成一页“项目进度汇报”PPT。
+> 引用标准母版。
 > 标题在左上角。
-> 中间有一个进度条，显示75%。
 > 右侧放一张架构图 `assets/arch.png`。
 
 ### 你的输出：
 ```html
+<!-- 母版引用 -->
+<div class="mother-ref" data-src="mothers/base.html"></div>
+
 <!-- 标题 -->
 <div class="element fs-title" contenteditable="true" style="left:5%; top:8%; width:80%; height:12%;">
     项目进度汇报
 </div>
 
-<!-- 进度条背景 -->
-<div class="element shape-rect" contenteditable="true" style="left:5%; top:40%; width:50%; height:8%; border-radius:10px;">
-    75% 完成度
-</div>
-<!-- 进度条填充 (shape-line) -->
-<div class="element shape-line" style="left:5%; top:40%; width:37.5%; height:8%; opacity:0.3; border-radius:10px 0 0 10px;"></div>
-
 <!-- 图片 -->
-<img class="element" src="assets/arch.png" style="left:60%; top:25%; width:35%; height:auto;">
+<div class="element" style="left:60%; top:25%; width:35%; height:40%;">
+    <img src="assets/arch.png" style="width:100%; height:100%; object-fit:contain;">
+</div>
 
 <!-- 备注 -->
 <div class="speaker-notes" style="display:none;">
-    目前项目整体进度符合预期，核心架构图如右侧所示。
+    目前项目整体进度符合预期。
 </div>
 ```
-
----
-**现在，请根据用户的具体指令生成代码。**

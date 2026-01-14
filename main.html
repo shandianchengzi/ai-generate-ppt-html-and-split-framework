@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IoTSP PPT Editor Ultimate</title>
+    <title>IoTSP PPT Editor Pro (Image Resizable)</title>
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
@@ -51,18 +51,18 @@
         #canvas { width: 100%; height: 100%; position: relative; overflow: hidden; }
 
         /* 图层分离 */
-        #mother-layer { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            z-index: 1; pointer-events: none; /* 母版不可点击 */
-        }
-        #content-layer { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            z-index: 10; 
-        }
+        #mother-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+        #content-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; }
 
         /* 元素通用 */
         .element { position: absolute; box-sizing: border-box; font-family: var(--font-stack); line-height: 1.4; transform-origin: top left; }
-        img.element { object-fit: contain; }
+        
+        /* 核心修复：图片容器内的图片样式 */
+        .element-img { 
+            width: 100%; height: 100%; object-fit: contain; 
+            pointer-events: none; /* 让鼠标事件穿透到父级div，方便拖拽 */
+            display: block;
+        }
 
         /* 编辑状态 */
         #content-layer .element { cursor: move; }
@@ -71,10 +71,10 @@
         
         /* 缩放手柄 */
         .resizer { 
-            width: 14px; height: 14px; background: var(--accent); 
-            position: absolute; right: -7px; bottom: -7px; 
+            width: 16px; height: 16px; background: var(--accent); 
+            position: absolute; right: -8px; bottom: -8px; 
             cursor: se-resize; display: none; z-index: 101; 
-            border-radius: 50%; border: 2px solid white; 
+            border-radius: 50%; border: 3px solid white; 
             box-shadow: 0 1px 3px rgba(0,0,0,0.3); 
         }
         #content-layer .element.selected .resizer { display: block; }
@@ -110,7 +110,7 @@
 <div id="toast">提示信息</div>
 
 <div id="sidebar">
-    <div id="sidebar-header">IoTSP Editor (Mother Support)</div>
+    <div id="sidebar-header">IoTSP Editor (Resizer Fixed)</div>
     <div id="sidebar-list">
         <div style="padding:20px; text-align:center; color:#999; font-size:13px;" id="loading-msg">Connecting...</div>
     </div>
@@ -120,7 +120,7 @@
     <div id="toolbar">
         <div class="tool-group">
             <span style="font-size:18px; font-weight:bold; color:var(--accent);">PPT Editor</span>
-            <span style="font-size:12px; color:#666; margin-top:4px;">(Delete键删除 / 母版只读)</span>
+            <span style="font-size:12px; color:#666; margin-top:4px;">(图片可拖拽缩放)</span>
         </div>
         <div class="tool-group">
             <span id="page-indicator" style="font-size:14px; font-weight:bold;">Page 1</span>
@@ -131,7 +131,6 @@
     </div>
 
     <div id="workspace">
-        <!-- tabindex=0 允许 canvas-wrapper 捕获键盘事件 (如删除) -->
         <div id="canvas-wrapper" tabindex="0">
             <div id="canvas">
                 <div id="mother-layer"></div>
@@ -148,7 +147,7 @@
 <script>
     let TOTAL_PAGES = 0;
     let currentPage = 1;
-    let pageCache = {}; // 仅缓存 content-layer 的 HTML
+    let pageCache = {}; 
 
     const motherLayer = document.getElementById('mother-layer');
     const contentLayer = document.getElementById('content-layer');
@@ -200,18 +199,15 @@
         }
     }
 
-    // === 2. 加载核心逻辑 (支持母版) ===
+    // === 2. 加载核心逻辑 ===
     async function loadSlide(index) {
-        // 保存上一页状态 (仅内存)
         if (currentPage > 0 && contentLayer.innerHTML) updateCacheOnly();
 
-        // UI 更新
         document.querySelector('.thumb.active')?.classList.remove('active');
         document.getElementById(`thumb-${index}`)?.classList.add('active');
         document.getElementById('page-indicator').innerText = `第 ${index} / ${TOTAL_PAGES} 页`;
         currentPage = index;
 
-        // 获取页面内容
         let htmlContent = pageCache[index];
         if (!htmlContent) {
             try {
@@ -219,50 +215,56 @@
                 htmlContent = await res.text();
             } catch (e) { htmlContent = ""; }
         }
-
-        // 解析并渲染
         renderLayers(htmlContent, index);
     }
 
     async function renderLayers(pageHtml, pageIndex) {
-        // 清空当前层
         motherLayer.innerHTML = '';
         contentLayer.innerHTML = '';
 
-        // 创建临时 DOM 解析
         const parser = new DOMParser();
         const doc = parser.parseFromString(pageHtml, 'text/html');
 
         // A. 提取备注
         const notesDiv = doc.querySelector('.speaker-notes');
         notesInput.value = notesDiv ? notesDiv.innerText.trim() : "";
-        notesDiv?.remove(); // 从渲染树中移除
+        notesDiv?.remove();
 
-        // B. 检测母版引用
+        // B. 母版处理
         const motherRef = doc.querySelector('.mother-ref');
         if (motherRef) {
             const motherSrc = motherRef.getAttribute('data-src');
             try {
-                const res = await fetch(`${motherSrc}?t=${Date.now()}`); // 获取母版
+                const res = await fetch(`${motherSrc}?t=${Date.now()}`);
                 if (res.ok) {
-                    const motherHtml = await res.text();
-                    motherLayer.innerHTML = motherHtml;
-                    
-                    // 特性：动态页码替换
+                    motherLayer.innerHTML = await res.text();
                     const pageNumEl = motherLayer.querySelector('#dynamic-page-num');
                     if (pageNumEl) pageNumEl.innerText = pageIndex;
                 }
-            } catch(e) { console.error("Mother load failed", e); }
-            motherRef.remove(); // 不显示引用标签本身
+            } catch(e) {}
+            motherRef.remove();
         }
 
-        // C. 剩余的都是页面内容，放入 content-layer
-        // 注意：要把 DOM 节点搬运过去
+        // C. 内容加载 (核心修复：自动升级 img 标签为 div容器)
         while (doc.body.firstChild) {
-            contentLayer.appendChild(doc.body.firstChild);
+            const node = doc.body.firstChild;
+            if (node.tagName === 'IMG' && node.classList.contains('element')) {
+                // 旧格式：直接是 img，无法添加子resizer -> 转换为容器
+                const wrapper = document.createElement('div');
+                wrapper.className = node.className; // 复制 element 类
+                wrapper.style.cssText = node.style.cssText; // 复制位置大小
+                
+                // 重置图片样式
+                node.className = 'element-img';
+                node.style.cssText = ''; 
+                
+                wrapper.appendChild(node);
+                contentLayer.appendChild(wrapper);
+            } else {
+                contentLayer.appendChild(node);
+            }
         }
 
-        // D. 重新绑定交互
         document.querySelectorAll('#content-layer .element').forEach(initElement);
     }
 
@@ -270,31 +272,23 @@
         pageCache[currentPage] = serializeCurrentPage();
     }
 
-    // 序列化：将当前状态还原为 HTML 字符串 (Content + MotherRef + Notes)
     function serializeCurrentPage() {
-        // 1. 获取母版引用标记 (如果有)
-        // 我们假设如果当前加载了母版，保存时也要保留引用。
-        // 简单起见，我们默认所有页面都引用 base.html，或者需要从原始数据里记下来。
-        // 这里为了演示，我们检查 motherLayer 是否有内容，如果有，就加上引用标签。
         let outputHtml = "";
         if (motherLayer.innerHTML.trim() !== "") {
             outputHtml += `<div class="mother-ref" data-src="mothers/base.html"></div>\n`;
         }
 
-        // 2. 获取内容层 (移除选中状态/Resizer)
         const cloneContent = contentLayer.cloneNode(true);
         cloneContent.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
         cloneContent.querySelectorAll('.resizer').forEach(el => el.remove());
         outputHtml += cloneContent.innerHTML;
 
-        // 3. 获取备注
         if (notesInput.value.trim()) {
             outputHtml += `\n<div class="speaker-notes" style="display:none;">${notesInput.value}</div>`;
         }
         return outputHtml;
     }
 
-    // === 3. 保存功能 ===
     async function saveCurrentPageToServer() {
         const htmlContent = serializeCurrentPage();
         try {
@@ -305,13 +299,12 @@
             if (res.ok) {
                 showToast('✅ Saved');
                 pageCache[currentPage] = htmlContent;
-                // 恢复 Resizer
                 document.querySelectorAll('#content-layer .element').forEach(initElement);
             } else { showToast('❌ Error'); }
         } catch (e) { showToast('❌ Error'); }
     }
 
-    // === 4. 交互逻辑 (删除、粘贴、拖拽、缩放) ===
+    // === 3. 交互逻辑 (支持图片缩放) ===
     function setupInteractions() {
         const wrapper = document.getElementById('canvas-wrapper');
 
@@ -327,49 +320,45 @@
             }
         });
 
-        // 删除元素 (Delete / Backspace)
+        // 删除
         wrapper.addEventListener('keydown', (e) => {
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 const selected = contentLayer.querySelector('.element.selected');
-                if (selected) {
-                    selected.remove();
-                    showToast('已删除');
-                }
+                if (selected) { selected.remove(); showToast('已删除'); }
             }
         });
     }
 
+    // 创建图片元素 (容器包裹模式)
     function createImageElement(src) {
+        // 1. 创建外部容器 div (负责定位和大小)
+        const wrapper = document.createElement('div');
+        wrapper.className = 'element';
+        wrapper.style.left = '35%'; wrapper.style.top = '30%'; 
+        wrapper.style.width = '30%'; wrapper.style.height = '30%'; // 默认宽高
+        
+        // 2. 创建内部图片 img (负责显示，填满容器)
         const img = document.createElement('img');
-        img.src = src; img.className = 'element';
-        img.style.left = '35%'; img.style.top = '30%'; img.style.width = '30%';
-        contentLayer.appendChild(img);
-        initElement(img);
+        img.src = src;
+        img.className = 'element-img'; // css: width:100%; height:100%; object-fit:contain;
+        
+        wrapper.appendChild(img);
+        contentLayer.appendChild(wrapper);
+        initElement(wrapper);
+        showToast('图片已粘贴');
     }
 
     function initElement(el) {
-        // 清理旧 Resizer
         el.querySelector('.resizer')?.remove();
-        
-        // 创建新 Resizer
         const resizer = document.createElement('div');
         resizer.className = 'resizer';
         el.appendChild(resizer);
 
-        // 图片特殊处理
-        if (el.tagName === 'IMG') {
-            el.setAttribute('draggable', 'false');
-            el.removeAttribute('contenteditable');
-        }
-
-        // 1. 选中逻辑
         el.onmousedown = (e) => {
             if (e.target === resizer) return;
-            // 只有 content-layer 的可以选中
             document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
             el.classList.add('selected');
             
-            // 拖拽准备
             let startX = e.clientX, startY = e.clientY;
             let startLeft = el.offsetLeft, startTop = el.offsetTop;
             let parentW = el.parentElement.offsetWidth, parentH = el.parentElement.offsetHeight;
@@ -386,9 +375,8 @@
             window.addEventListener('mouseup', onUp);
         };
 
-        // 2. 缩放逻辑 (Resizer)
         resizer.onmousedown = (e) => {
-            e.stopPropagation(); // 阻止触发拖拽
+            e.stopPropagation();
             let startX = e.clientX, startY = e.clientY;
             let startW = el.offsetWidth, startH = el.offsetHeight;
             let parentW = el.parentElement.offsetWidth, parentH = el.parentElement.offsetHeight;
@@ -397,9 +385,7 @@
                 const newW = startW + (ev.clientX - startX);
                 const newH = startH + (ev.clientY - startY);
                 el.style.width = (newW / parentW * 100) + '%';
-                
-                // 图片保持比例建议只调宽，但这里允许自由调高，配合 object-fit: contain
-                el.style.height = (newH / parentH * 100) + '%'; 
+                el.style.height = (newH / parentH * 100) + '%';
             };
             const onUp = () => {
                 window.removeEventListener('mousemove', onResize);
@@ -410,7 +396,7 @@
         };
     }
 
-    // === 5. 导出逻辑 (合并图层) ===
+    // === 4. 导出逻辑 (适配 Wrapper 结构) ===
     function configurePPTX(pptx) {
         pptx.defineLayout({ name:'WIDE', width:13.3333, height:7.5 });
         pptx.layout = 'WIDE';
@@ -423,53 +409,48 @@
 
         for (let i = 1; i <= TOTAL_PAGES; i++) {
             const slide = pptx.addSlide();
-            
-            // 为了正确导出，我们需要解析完整的 HTML (Mother + Content)
-            // 临时渲染以获取合并后的 DOM 结构
             const tempContainer = document.createElement('div');
             
-            // A. 母版 (如果使用了)
-            // 这里为了简化，我们直接手动把 base.html 的内容读出来加进去，或者复用页面里的 mother-layer
-            // 最好的方式是复用当前的 renderLayers 逻辑生成 DOM，但不要挂载到页面
-            // 简单方案：
+            // A. 母版合并
             let contentHtml = pageCache[i];
-            // 检查是否有 mother-ref
             if (contentHtml && contentHtml.includes('mother-ref')) {
-                // 读取 base.html (假设只有一个母版)
                 try {
                     const motherRes = await fetch('mothers/base.html');
-                    const motherText = await motherRes.text();
-                    // 将母版内容加到临时容器
                     const mDiv = document.createElement('div');
-                    mDiv.innerHTML = motherText;
-                    // 处理动态页码
+                    mDiv.innerHTML = await motherRes.text();
                     const pNum = mDiv.querySelector('#dynamic-page-num');
                     if(pNum) pNum.innerText = i;
-                    
-                    Array.from(mDiv.children).forEach(child => tempContainer.appendChild(child));
+                    Array.from(mDiv.children).forEach(c => tempContainer.appendChild(c));
                 } catch(e){}
             }
 
-            // B. 页面内容
+            // B. 内容合并
             const cDiv = document.createElement('div');
             cDiv.innerHTML = contentHtml || "";
-            // 移除 ref 和 notes
             cDiv.querySelector('.mother-ref')?.remove();
             const notesText = cDiv.querySelector('.speaker-notes')?.innerText;
             cDiv.querySelector('.speaker-notes')?.remove();
             
-            Array.from(cDiv.children).forEach(child => tempContainer.appendChild(child));
+            // 处理旧格式 Img -> Wrapper (为了导出统一)
+            cDiv.querySelectorAll('img.element').forEach(img => {
+                const wrapper = document.createElement('div');
+                wrapper.className = img.className; wrapper.style.cssText = img.style.cssText;
+                img.className = 'element-img'; img.style.cssText = '';
+                img.parentNode.insertBefore(wrapper, img);
+                wrapper.appendChild(img);
+            });
 
-            // C. 遍历所有元素生成 PPTX
+            Array.from(cDiv.children).forEach(c => tempContainer.appendChild(c));
+
+            // C. 生成 PPTX
             tempContainer.querySelectorAll('.element').forEach(el => {
                 const style = el.style;
-                // 计算百分比
                 const opts = {
                     x: style.left || "0", y: style.top || "0", w: style.width, h: style.height,
                     fontFace: "楷体", color: "000000"
                 };
                 
-                // 样式映射 (与之前相同)
+                // 样式映射
                 if (el.classList.contains('fs-title')) { opts.fontSize = 44; opts.bold = true; }
                 else if (el.classList.contains('fs-sub')) { opts.fontSize = 32; }
                 else if (el.classList.contains('fs-body')) { opts.fontSize = 24; }
@@ -480,8 +461,12 @@
                 if (el.classList.contains('shape-line')) { opts.fill = { color: "023163" }; }
                 if (el.style.fontWeight === 'bold') opts.bold = true;
 
-                if (el.tagName === 'IMG') {
-                    // 处理 src，如果是相对路径
+                // 核心：检查是否是图片容器
+                const innerImg = el.querySelector('img');
+                if (innerImg) {
+                    slide.addImage({ path: innerImg.getAttribute('src'), x: opts.x, y: opts.y, w: opts.w, h: opts.h });
+                } else if (el.tagName === 'IMG') {
+                    // 兼容母版里的直接 img
                     slide.addImage({ path: el.getAttribute('src'), x: opts.x, y: opts.y, w: opts.w, h: opts.h });
                 } else if (el.classList.contains('shape-line')) {
                     slide.addShape(pptx.ShapeType.rect, opts);
@@ -508,13 +493,11 @@
             progressBar.style.width = `${(i / TOTAL_PAGES) * 100}%`;
             await loadSlide(i);
             
-            // 清理界面
             document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
             document.querySelectorAll('.resizer').forEach(el => el.style.display = 'none');
             await new Promise(r => setTimeout(r, 150));
 
             try {
-                // 直接截取 #canvas (包含了 mother 和 content 两层)
                 const canvasEl = await html2canvas(document.getElementById('canvas'), { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
                 const slide = pptx.addSlide();
                 slide.addImage({ data: canvasEl.toDataURL('image/png'), x: 0, y: 0, w: "100%", h: "100%" });
