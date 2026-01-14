@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IoTSP PPT 编辑器 Pro (修复字体版)</title>
+    <title>IoTSP PPT 编辑器 Pro (16:9 宽屏版)</title>
     <!-- 引入 PptxGenJS (生成PPT) -->
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <!-- 引入 html2canvas (生成图片) -->
@@ -13,189 +13,168 @@
         :root {
             --primary: #000000;
             --accent: #023163;
-            --bg: #f0f2f5;
-            --slide-w: 960px;
-            --slide-h: 540px;
-            --sidebar-w: 220px;
-            /* 核心修复：定义完整的楷体字体栈，兼容 Win/Mac */
-            --font-stack: "KaiTi", "楷体", "STKaiti", "华文楷体", "Kiwi Maru", serif;
+            --bg: #e0e4e8; /*稍微深一点的背景，突出画布*/
+            /* 
+               物理尺寸: 33.867cm x 19.05cm
+               屏幕映射: 1280px x 720px (16:9) 
+            */
+            --slide-w: 1280px;
+            --slide-h: 720px;
+            --sidebar-w: 240px;
+            --font-stack: "KaiTi", "楷体", "STKaiti", "华文楷体", "Microsoft YaHei", serif;
         }
         
-        body { 
-            margin: 0; 
-            display: flex; 
-            height: 100vh; 
-            background: var(--bg); 
-            font-family: var(--font-stack); 
-            overflow: hidden; 
-        }
+        body { margin: 0; display: flex; height: 100vh; background: var(--bg); font-family: var(--font-stack); overflow: hidden; }
 
         /* === 侧边栏 === */
-        #sidebar { 
-            width: var(--sidebar-w); 
-            background: white; 
-            border-right: 1px solid #ddd; 
-            display: flex; 
-            flex-direction: column; 
-            z-index: 10;
-        }
-        #sidebar-header { padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; color: var(--accent); }
-        #sidebar-list { flex: 1; overflow-y: auto; padding: 10px; }
+        #sidebar { width: var(--sidebar-w); background: white; border-right: 1px solid #ccc; display: flex; flex-direction: column; z-index: 10; box-shadow: 2px 0 5px rgba(0,0,0,0.05); }
+        #sidebar-header { padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; color: var(--accent); font-size: 16px; }
+        #sidebar-list { flex: 1; overflow-y: auto; padding: 15px; }
         
+        /* 缩略图自适应 */
         .thumb { 
-            padding: 12px; 
+            position: relative;
+            width: 100%;
+            padding-top: 56.25%; /* 16:9 比例 */
             background: #fff; 
             border: 2px solid #eee; 
             cursor: pointer; 
-            margin-bottom: 10px; 
-            border-radius: 4px; 
-            font-size: 14px;
-            display: flex; 
-            justify-content: space-between;
-            font-family: var(--font-stack); /* 侧边栏也应用字体 */
+            margin-bottom: 15px; 
+            border-radius: 6px; 
+            transition: 0.2s;
+            overflow: hidden;
         }
-        .thumb:hover { border-color: #ccc; }
-        .thumb.active { border-color: var(--accent); background: #eef2f6; color: var(--accent); font-weight: bold; }
-        .thumb-status { font-size: 12px; color: #999; }
+        .thumb-content {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-size: 14px; color: #666;
+        }
+        .thumb:hover { border-color: #bbb; transform: translateY(-2px); }
+        .thumb.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(2, 49, 99, 0.2); }
+        .thumb.active .thumb-content { color: var(--accent); font-weight: bold; background: #f0f4f8; }
 
         /* === 主工作区 === */
         #main { flex: 1; display: flex; flex-direction: column; height: 100vh; position: relative; }
         
-        /* 工具栏 */
-        #toolbar { 
-            height: 50px; 
-            background: white; 
-            border-bottom: 1px solid #ddd; 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
-            padding: 0 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            z-index: 20;
-        }
+        #toolbar { height: 60px; background: white; border-bottom: 1px solid #ccc; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 20; }
         .tool-group { display: flex; align-items: center; gap: 15px; }
-        button { background: var(--accent); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; transition: 0.2s; font-family: sans-serif; }
-        button:hover { opacity: 0.9; }
-        button.secondary { background: #555; }
-        button.secondary:hover { background: #333; }
+        button { background: var(--accent); color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; transition: 0.2s; font-family: sans-serif; font-size: 14px; font-weight: 500; }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        button.save-btn { background: #28a745; }
+        button.secondary { background: #6c757d; }
 
-        /* 画布滚动区 */
+        /* 画布区域 */
         #workspace { 
             flex: 1; 
             overflow: auto; 
             display: flex; 
-            flex-direction: column;
+            flex-direction: column; 
             align-items: center; 
             padding: 40px; 
             background: var(--bg);
         }
 
-        /* PPT 画布容器 */
         #canvas-wrapper { 
             position: relative; 
-            box-shadow: 0 0 20px rgba(0,0,0,0.15); 
-            border: 1px solid #ccc;
+            width: var(--slide-w);
+            height: var(--slide-h);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15); 
+            border: 1px solid #ccc; 
+            outline: none; 
+            background: white;
+            /* 居中显示 */
+            margin-bottom: 20px;
+            flex-shrink: 0; /* 防止被压缩 */
         }
+        
         #canvas { 
-            width: var(--slide-w); 
-            height: var(--slide-h); 
+            width: 100%; 
+            height: 100%; 
             background: white; 
             position: relative; 
             overflow: hidden; 
-            /* 核心修复：强制画布使用指定字体，防止 html2canvas 无法读取继承样式 */
-            font-family: var(--font-stack);
-            /* 优化字体渲染 */
-            text-rendering: geometricPrecision;
-            -webkit-font-smoothing: antialiased;
+            font-family: var(--font-stack); 
+            text-rendering: geometricPrecision; 
         }
 
-        /* 讲演备注区 */
-        #notes-panel {
-            margin-top: 20px;
-            width: var(--slide-w);
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        /* 讲演备注 */
+        #notes-panel { 
+            width: var(--slide-w); 
+            background: white; 
+            border: 1px solid #ccc; 
+            border-radius: 6px; 
+            display: flex; 
+            flex-direction: column; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            flex-shrink: 0;
+            margin-bottom: 40px;
         }
-        #notes-header { padding: 10px 15px; background: #f9f9f9; border-bottom: 1px solid #eee; font-size: 14px; color: #666; font-weight: bold; font-family: sans-serif; }
-        #notes-input { width: 100%; height: 120px; padding: 15px; border: none; resize: vertical; font-family: sans-serif; font-size: 14px; line-height: 1.5; color: #333; box-sizing: border-box; outline: none; }
+        #notes-header { padding: 12px 20px; background: #f8f9fa; border-bottom: 1px solid #eee; font-size: 14px; color: #555; font-weight: bold; }
+        #notes-input { width: 100%; height: 100px; padding: 15px; border: none; resize: none; font-family: sans-serif; font-size: 14px; line-height: 1.6; color: #333; box-sizing: border-box; outline: none; }
 
         /* === 元素样式 === */
-        .element { 
-            position: absolute; 
-            cursor: move; 
-            box-sizing: border-box; 
-            /* 核心修复：元素级强制字体 */
-            font-family: var(--font-stack);
-        }
+        .element { position: absolute; cursor: move; box-sizing: border-box; font-family: var(--font-stack); line-height: 1.4; }
         .element:hover { outline: 1px dashed #999; }
         .element.selected { outline: 2px solid var(--accent); z-index: 100; }
-        .element[contenteditable="true"] { cursor: text; }
-        
-        .resizer { width: 12px; height: 12px; background: var(--accent); position: absolute; right: -6px; bottom: -6px; cursor: se-resize; display: none; z-index: 101; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 2px rgba(0,0,0,0.5); }
+        .element[contenteditable="true"] { cursor: text; outline: none; }
+        .element[contenteditable="true"]:focus { outline: 2px solid var(--accent); background: rgba(2, 49, 99, 0.02); }
+        img.element { object-fit: contain; } 
+
+        .resizer { width: 14px; height: 14px; background: var(--accent); position: absolute; right: -7px; bottom: -7px; cursor: se-resize; display: none; z-index: 101; border-radius: 50%; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
         .element.selected .resizer { display: block; }
 
         /* 实用类 */
-        .fs-title { font-size: 44px; font-weight: bold; color: var(--primary); }
-        .fs-sub { font-size: 32px; color: var(--primary); }
-        .fs-body { font-size: 24px; color: var(--primary); }
-        .fs-small { font-size: 20px; color: var(--primary); }
+        .fs-title { font-size: 48px; font-weight: bold; color: var(--primary); }
+        .fs-sub { font-size: 36px; color: var(--primary); }
+        .fs-body { font-size: 28px; color: var(--primary); }
+        .fs-small { font-size: 22px; color: var(--primary); }
         .bg-accent { background-color: var(--accent); color: white; display: flex; align-items: center; justify-content: center; text-align: center; }
         .color-accent { color: var(--accent); }
-        .shape-rect { border: 2px solid var(--accent); background: white; display: flex; align-items: center; justify-content: center; text-align: center; }
+        .shape-rect { border: 3px solid var(--accent); background: white; display: flex; align-items: center; justify-content: center; text-align: center; }
         .shape-line { background: var(--accent); }
-        
-        .logo-mark { position: absolute; top: 5%; right: 5%; width: 100px; height: 40px; background: #eee; border: 1px dashed #ccc; color: #999; display: flex; align-items: center; justify-content: center; font-size: 12px; pointer-events: none; }
         
         .speaker-notes { display: none; }
 
-        /* 遮罩层 */
-        #overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); z-index: 999;
-            display: none; align-items: center; justify-content: center;
-            flex-direction: column; color: white; font-family: sans-serif;
-        }
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 999; display: none; align-items: center; justify-content: center; flex-direction: column; color: white; font-family: sans-serif; }
+        #toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 30px; font-size: 14px; opacity: 0; transition: 0.3s; pointer-events: none; z-index: 2000; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
     </style>
 </head>
 <body>
 
 <div id="overlay">
-    <div style="font-size: 24px; margin-bottom: 20px;" id="overlay-msg">正在生成图片 PPT...</div>
-    <div style="width: 300px; height: 10px; background: #333; border-radius: 5px;">
-        <div id="progress-bar" style="width: 0%; height: 100%; background: #00ff00; border-radius: 5px; transition: 0.2s;"></div>
+    <div style="font-size: 24px; margin-bottom: 20px; font-weight:300;" id="overlay-msg">处理中...</div>
+    <div style="width: 400px; height: 6px; background: #444; border-radius: 3px; overflow:hidden;">
+        <div id="progress-bar" style="width: 0%; height: 100%; background: #28a745; transition: 0.2s;"></div>
     </div>
 </div>
 
+<div id="toast">提示信息</div>
+
 <div id="sidebar">
-    <div id="sidebar-header">IoTSP 幻灯片</div>
+    <div id="sidebar-header">IoTSP 幻灯片 (16:9)</div>
     <div id="sidebar-list">
-        <div style="padding:20px; text-align:center; color:#999;" id="loading-msg">正在探测页面...</div>
+        <div style="padding:20px; text-align:center; color:#999; font-size:13px;" id="loading-msg">正在连接服务器...<br>请运行 python server.py</div>
     </div>
 </div>
 
 <div id="main">
     <div id="toolbar">
         <div class="tool-group">
-            <span style="font-size:14px; font-weight:bold; color:var(--accent);">PPT 编辑器 Pro</span>
+            <span style="font-size:18px; font-weight:bold; color:var(--accent);">PPT Editor Pro</span>
+            <span style="font-size:12px; color:#666; margin-top:4px;">33.87cm × 19.05cm (16:9)</span>
         </div>
         <div class="tool-group">
-            <span id="page-indicator" style="font-size:14px; color:#333;">第 1 页</span>
+            <span id="page-indicator" style="font-size:14px; color:#333; font-weight:bold;">第 1 页</span>
+            <button class="save-btn" onclick="saveCurrentPageToServer()">💾 保存本页</button>
             <button class="secondary" onclick="exportImagePPT()">📷 导出全图 PPT</button>
             <button onclick="exportEditPPT()">📥 导出可编辑 PPT</button>
         </div>
     </div>
 
     <div id="workspace">
-        <div id="canvas-wrapper">
+        <div id="canvas-wrapper" tabindex="0">
             <div id="canvas"></div>
-            <div class="logo-mark">Logo占位</div>
         </div>
-
-        <!-- 备注编辑区 -->
         <div id="notes-panel">
             <div id="notes-header">🎤 讲演备注 (Speaker Notes)</div>
             <textarea id="notes-input" placeholder="在此输入本页的演讲稿..."></textarea>
@@ -204,7 +183,6 @@
 </div>
 
 <script>
-    // 全局状态
     let TOTAL_PAGES = 0;
     let currentPage = 1;
     let pageCache = {}; 
@@ -216,13 +194,49 @@
     const overlay = document.getElementById('overlay');
     const overlayMsg = document.getElementById('overlay-msg');
     const progressBar = document.getElementById('progress-bar');
+    const toast = document.getElementById('toast');
 
-    // === 1. 初始化与自动探测 ===
-    window.onload = async () => { await detectPages(); };
+    window.onload = async () => { 
+        await detectPages(); 
+        setupPasteListener();
+    };
+
+    function showToast(msg) {
+        toast.innerText = msg;
+        toast.style.opacity = 1;
+        toast.style.top = '80px';
+        setTimeout(() => { toast.style.opacity = 0; toast.style.top = '70px'; }, 2000);
+    }
+
+    function setupPasteListener() {
+        const wrapper = document.getElementById('canvas-wrapper');
+        wrapper.addEventListener('paste', (e) => {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let index in items) {
+                const item = items[index];
+                if (item.kind === 'file' && item.type.includes('image/')) {
+                    const blob = item.getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = (event) => createImageElement(event.target.result);
+                    reader.readAsDataURL(blob);
+                }
+            }
+        });
+    }
+
+    function createImageElement(src) {
+        const img = document.createElement('img');
+        img.src = src;
+        img.className = 'element';
+        img.style.left = '35%'; img.style.top = '30%'; img.style.width = '30%'; img.style.height = 'auto';
+        img.setAttribute('draggable', 'false');
+        canvas.appendChild(img);
+        initElement(img);
+        showToast('图片已粘贴');
+    }
 
     async function detectPages() {
-        let count = 0;
-        let maxTry = 50; 
+        let count = 0, maxTry = 50; 
         while (count < maxTry) {
             const nextIdx = count + 1;
             try {
@@ -237,7 +251,7 @@
         }
         TOTAL_PAGES = count;
         if (TOTAL_PAGES === 0) {
-            sidebarList.innerHTML = `<div style="padding:10px; color:red;">未找到 HTML 文件。<br>请检查 pages/ 目录。<br>确保通过本地服务器 (localhost) 访问。</div>`;
+            sidebarList.innerHTML = `<div style="padding:20px; color:red;">未找到页面文件</div>`;
             return;
         }
         renderSidebar();
@@ -249,17 +263,15 @@
         for (let i = 1; i <= TOTAL_PAGES; i++) {
             let div = document.createElement('div');
             div.className = 'thumb';
-            div.innerHTML = `<span>第 ${i} 页</span> <span class="thumb-status" id="status-${i}"></span>`;
+            div.innerHTML = `<div class="thumb-content"><span>Page ${i}</span></div>`;
             div.onclick = () => loadSlide(i);
             div.id = `thumb-${i}`;
             sidebarList.appendChild(div);
         }
     }
 
-    // === 2. 页面加载与保存逻辑 ===
-    async function loadSlide(index, skipSave = false) {
-        if (!skipSave && currentPage > 0 && canvas.innerHTML) saveCurrentState();
-
+    async function loadSlide(index) {
+        if (currentPage > 0 && canvas.innerHTML) updateCacheOnly();
         if (document.querySelector('.thumb.active')) document.querySelector('.thumb.active').classList.remove('active');
         const activeThumb = document.getElementById(`thumb-${index}`);
         if(activeThumb) activeThumb.classList.add('active');
@@ -267,27 +279,27 @@
         currentPage = index;
         pageIndicator.innerText = `第 ${index} / ${TOTAL_PAGES} 页`;
 
-        let htmlContent = "";
-        if (pageCache[index]) {
-            htmlContent = pageCache[index];
-        } else {
+        let htmlContent = pageCache[index];
+        if (!htmlContent) {
             try {
                 const res = await fetch(`pages/${index}.html?t=${Date.now()}`);
                 if (!res.ok) throw new Error("Load failed");
                 htmlContent = await res.text();
-            } catch (e) { htmlContent = `<div style="padding:20px; color:red;">加载失败: pages/${index}.html</div>`; }
+            } catch (e) { htmlContent = `<div style="padding:20px; color:red;">加载失败</div>`; }
         }
 
         canvas.innerHTML = htmlContent;
         const notesDiv = canvas.querySelector('.speaker-notes');
         notesInput.value = notesDiv ? notesDiv.innerText.trim() : "";
-        initElements();
-        
-        return Promise.resolve();
+        document.querySelectorAll('.element').forEach(initElement);
     }
 
-    function saveCurrentState() {
-        document.querySelectorAll('.element').forEach(el => el.classList.remove('selected'));
+    function updateCacheOnly() {
+        syncNotesToDom();
+        pageCache[currentPage] = canvas.innerHTML;
+    }
+
+    function syncNotesToDom() {
         let notesDiv = canvas.querySelector('.speaker-notes');
         if (!notesDiv) {
             notesDiv = document.createElement('div');
@@ -296,54 +308,77 @@
             canvas.appendChild(notesDiv);
         }
         notesDiv.innerText = notesInput.value;
-        pageCache[currentPage] = canvas.innerHTML;
-        const statusSpan = document.getElementById(`status-${currentPage}`);
-        if (statusSpan) statusSpan.innerText = "●";
     }
 
-    function initElements() {
-        document.querySelectorAll('.element').forEach(el => {
-            if (!el.querySelector('.resizer')) {
-                const resizer = document.createElement('div');
-                resizer.className = 'resizer';
-                el.appendChild(resizer);
-            }
-            el.onmousedown = (e) => {
-                if (e.target.className === 'resizer') return;
-                document.querySelectorAll('.element').forEach(e => e.classList.remove('selected'));
-                el.classList.add('selected');
-                let startX = e.clientX, startY = e.clientY;
-                let startLeft = el.offsetLeft, startTop = el.offsetTop;
-                let parentW = el.parentElement.offsetWidth, parentH = el.parentElement.offsetHeight;
-                const onMove = (ev) => {
-                    el.style.left = ((startLeft + ev.clientX - startX) / parentW * 100) + '%';
-                    el.style.top = ((startTop + ev.clientY - startY) / parentH * 100) + '%';
-                };
-                window.addEventListener('mousemove', onMove);
-                window.addEventListener('mouseup', () => window.removeEventListener('mousemove', onMove), {once:true});
-            };
-            const resizer = el.querySelector('.resizer');
-            resizer.onmousedown = (e) => {
-                e.stopPropagation();
-                let startX = e.clientX, startY = e.clientY;
-                let startW = el.offsetWidth, startH = el.offsetHeight;
-                let parentW = el.parentElement.offsetWidth, parentH = el.parentElement.offsetHeight;
-                const onResize = (ev) => {
-                    el.style.width = ((startW + ev.clientX - startX) / parentW * 100) + '%';
-                    el.style.height = ((startH + ev.clientY - startY) / parentH * 100) + '%';
-                };
-                window.addEventListener('mousemove', onResize);
-                window.addEventListener('mouseup', () => window.removeEventListener('mousemove', onResize), {once:true});
-            };
-        });
+    async function saveCurrentPageToServer() {
+        document.querySelectorAll('.element').forEach(el => el.classList.remove('selected'));
+        document.querySelectorAll('.resizer').forEach(el => el.remove());
+        syncNotesToDom();
+        const htmlContent = canvas.innerHTML;
+        try {
+            showToast('正在保存...');
+            const res = await fetch(`pages/${currentPage}.html`, {
+                method: 'POST', headers: { 'Content-Type': 'text/html' }, body: htmlContent
+            });
+            if (res.ok) {
+                showToast('✅ 保存成功');
+                pageCache[currentPage] = htmlContent;
+                document.querySelectorAll('.element').forEach(initElement);
+            } else { showToast('❌ 保存失败'); }
+        } catch (e) { showToast('❌ 请求错误'); }
     }
 
-    // === 3. 导出可编辑 PPT ===
-    async function exportEditPPT() {
-        saveCurrentState();
-        const pptx = new PptxGenJS();
-        pptx.layout = 'LAYOUT_16x9';
+    function initElement(el) {
+        if (el.querySelector('.resizer')) el.querySelector('.resizer').remove();
+        const resizer = document.createElement('div');
+        resizer.className = 'resizer';
+        el.appendChild(resizer);
+        if (el.tagName === 'IMG') {
+            el.removeAttribute('contenteditable');
+            el.setAttribute('draggable', 'false');
+        }
+        el.onmousedown = (e) => {
+            if (e.target.className === 'resizer') return;
+            document.querySelectorAll('.element').forEach(e => e.classList.remove('selected'));
+            el.classList.add('selected');
+            let startX = e.clientX, startY = e.clientY;
+            let startLeft = el.offsetLeft, startTop = el.offsetTop;
+            let parentW = el.parentElement.offsetWidth, parentH = el.parentElement.offsetHeight;
+            const onMove = (ev) => {
+                el.style.left = ((startLeft + ev.clientX - startX) / parentW * 100) + '%';
+                el.style.top = ((startTop + ev.clientY - startY) / parentH * 100) + '%';
+            };
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', () => window.removeEventListener('mousemove', onMove), {once:true});
+        };
+        resizer.onmousedown = (e) => {
+            e.stopPropagation();
+            let startX = e.clientX, startY = e.clientY;
+            let startW = el.offsetWidth, startH = el.offsetHeight;
+            let parentW = el.parentElement.offsetWidth, parentH = el.parentElement.offsetHeight;
+            const onResize = (ev) => {
+                el.style.width = ((startW + ev.clientX - startX) / parentW * 100) + '%';
+                el.style.height = ((startH + ev.clientY - startY) / parentH * 100) + '%';
+            };
+            window.addEventListener('mousemove', onResize);
+            window.addEventListener('mouseup', () => window.removeEventListener('mousemove', onResize), {once:true});
+        };
+    }
+
+    function configurePPTX(pptx) {
+        // === 核心逻辑修改：设置自定义宽屏尺寸 ===
+        // 33.867 cm = 13.333 inches
+        // 19.05 cm = 7.5 inches
+        pptx.defineLayout({ name:'WIDE_SCREEN', width:13.3333, height:7.5 });
+        pptx.layout = 'WIDE_SCREEN';
+        pptx.author = 'IoTSP Lab';
         pptx.title = '开源动员大会';
+    }
+
+    async function exportEditPPT() {
+        updateCacheOnly();
+        const pptx = new PptxGenJS();
+        configurePPTX(pptx); // 应用尺寸配置
 
         for (let i = 1; i <= TOTAL_PAGES; i++) {
             const slide = pptx.addSlide();
@@ -355,90 +390,63 @@
                 const style = el.style;
                 const opts = {
                     x: style.left || "0", y: style.top || "0", w: style.width, h: style.height,
-                    // 核心修复：显式指定 PowerPoint 标准楷体名称
-                    fontFace: "楷体", 
-                    color: "000000"
+                    fontFace: "楷体", color: "000000"
                 };
                 if (el.classList.contains('fs-title')) { opts.fontSize = 44; opts.bold = true; }
                 else if (el.classList.contains('fs-sub')) { opts.fontSize = 32; }
                 else if (el.classList.contains('fs-body')) { opts.fontSize = 24; }
                 else if (el.classList.contains('fs-small')) { opts.fontSize = 20; }
-
                 if (el.classList.contains('color-accent')) opts.color = "023163";
                 if (el.classList.contains('bg-accent')) { opts.fill = { color: "023163" }; opts.color = "FFFFFF"; }
                 if (el.classList.contains('shape-rect')) { opts.line = { color: "023163", width: 2 }; }
                 if (el.classList.contains('shape-line')) { opts.fill = { color: "023163" }; }
                 if (el.style.fontWeight === 'bold') opts.bold = true;
 
-                const clone = el.cloneNode(true);
-                if (clone.querySelector('.resizer')) clone.querySelector('.resizer').remove();
-                let text = clone.innerText.trim();
-
-                if (el.classList.contains('shape-line')) slide.addShape(pptx.ShapeType.rect, opts);
-                else if (el.classList.contains('shape-rect')) slide.addText(text, { ...opts, shape: pptx.ShapeType.rect });
-                else slide.addText(text, opts);
+                if (el.tagName === 'IMG') {
+                    slide.addImage({ path: el.getAttribute('src'), x: opts.x, y: opts.y, w: opts.w, h: opts.h });
+                } else if (el.classList.contains('shape-line')) {
+                    slide.addShape(pptx.ShapeType.rect, opts);
+                } else if (el.classList.contains('shape-rect')) {
+                    slide.addText(el.innerText.trim(), { ...opts, shape: pptx.ShapeType.rect });
+                } else {
+                    slide.addText(el.innerText.trim(), opts);
+                }
             });
-
-            slide.addShape(pptx.ShapeType.rect, { x: "88%", y: "5%", w: "10%", h: "8%", fill: { color: "F2F2F2" }, line: {color: "CCCCCC", dashType: "dash"} });
-            slide.addText("LOGO", { x: "88%", y: "5%", w: "10%", h: "8%", fontSize: 10, align: "center", color: "999999" });
-            
             const notesDiv = doc.querySelector('.speaker-notes');
             if (notesDiv) slide.addNotes(notesDiv.innerText.trim());
         }
-        pptx.writeFile({ fileName: "IoTSP_可编辑版.pptx" });
+        pptx.writeFile({ fileName: "IoTSP_Edit_16x9.pptx" });
     }
 
-    // === 4. 导出全图 PPT ===
     async function exportImagePPT() {
-        saveCurrentState(); 
+        updateCacheOnly();
         const originalPage = currentPage; 
-        
         overlay.style.display = 'flex';
-        
         const pptx = new PptxGenJS();
-        pptx.layout = 'LAYOUT_16x9';
-        pptx.title = '开源动员大会(图片版)';
+        configurePPTX(pptx); // 应用尺寸配置
         
         for (let i = 1; i <= TOTAL_PAGES; i++) {
-            overlayMsg.innerText = `正在处理第 ${i} / ${TOTAL_PAGES} 页...`;
+            overlayMsg.innerText = `处理中... ${i}/${TOTAL_PAGES}`;
             progressBar.style.width = `${(i / TOTAL_PAGES) * 100}%`;
-            
-            await loadSlide(i, true); 
-            
-            // 准备截图：移除交互元素
+            await loadSlide(i); 
             document.querySelectorAll('.element').forEach(el => el.classList.remove('selected'));
             document.querySelectorAll('.resizer').forEach(el => el.style.display = 'none');
-
             await new Promise(r => setTimeout(r, 200));
 
             try {
-                // 核心修复：scale: 2 保证清晰度
-                const canvasEl = await html2canvas(document.getElementById('canvas'), { 
-                    scale: 2,
-                    useCORS: true, 
-                    backgroundColor: "#ffffff"
-                });
-                const imgData = canvasEl.toDataURL('image/png');
-
+                // scale: 2 保证 1280x720 翻倍后的清晰度
+                const canvasEl = await html2canvas(document.getElementById('canvas'), { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
                 const slide = pptx.addSlide();
-                slide.addImage({ data: imgData, x: 0, y: 0, w: "100%", h: "100%" });
-
-                if (notesInput.value.trim()) {
-                    slide.addNotes(notesInput.value.trim());
-                }
-
-            } catch (err) {
-                console.error("Screen capture failed", err);
-            }
+                slide.addImage({ data: canvasEl.toDataURL('image/png'), x: 0, y: 0, w: "100%", h: "100%" });
+                if (notesInput.value.trim()) slide.addNotes(notesInput.value.trim());
+            } catch (err) { console.error(err); }
         }
-
-        overlayMsg.innerText = "正在生成文件...";
-        pptx.writeFile({ fileName: "IoTSP_全图版.pptx" }).then(() => {
+        overlayMsg.innerText = "完成";
+        pptx.writeFile({ fileName: "IoTSP_Image_16x9.pptx" }).then(() => {
             overlay.style.display = 'none';
             loadSlide(originalPage); 
         });
     }
-
 </script>
 </body>
 </html>
