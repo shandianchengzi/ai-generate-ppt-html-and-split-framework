@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IoTSP PPT 编辑器 Pro</title>
-    <!-- 引入 PptxGenJS -->
+    <title>IoTSP PPT 编辑器 Pro (修复字体版)</title>
+    <!-- 引入 PptxGenJS (生成PPT) -->
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+    <!-- 引入 html2canvas (生成图片) -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
         /* === 全局变量 === */
         :root {
@@ -15,9 +17,18 @@
             --slide-w: 960px;
             --slide-h: 540px;
             --sidebar-w: 220px;
+            /* 核心修复：定义完整的楷体字体栈，兼容 Win/Mac */
+            --font-stack: "KaiTi", "楷体", "STKaiti", "华文楷体", "Kiwi Maru", serif;
         }
         
-        body { margin: 0; display: flex; height: 100vh; background: var(--bg); font-family: "KaiTi", "楷体", serif; overflow: hidden; }
+        body { 
+            margin: 0; 
+            display: flex; 
+            height: 100vh; 
+            background: var(--bg); 
+            font-family: var(--font-stack); 
+            overflow: hidden; 
+        }
 
         /* === 侧边栏 === */
         #sidebar { 
@@ -41,6 +52,7 @@
             font-size: 14px;
             display: flex; 
             justify-content: space-between;
+            font-family: var(--font-stack); /* 侧边栏也应用字体 */
         }
         .thumb:hover { border-color: #ccc; }
         .thumb.active { border-color: var(--accent); background: #eef2f6; color: var(--accent); font-weight: bold; }
@@ -62,9 +74,10 @@
             z-index: 20;
         }
         .tool-group { display: flex; align-items: center; gap: 15px; }
-        button { background: var(--accent); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        button { background: var(--accent); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; transition: 0.2s; font-family: sans-serif; }
         button:hover { opacity: 0.9; }
-        button.secondary { background: #666; }
+        button.secondary { background: #555; }
+        button.secondary:hover { background: #333; }
 
         /* 画布滚动区 */
         #workspace { 
@@ -89,6 +102,11 @@
             background: white; 
             position: relative; 
             overflow: hidden; 
+            /* 核心修复：强制画布使用指定字体，防止 html2canvas 无法读取继承样式 */
+            font-family: var(--font-stack);
+            /* 优化字体渲染 */
+            text-rendering: geometricPrecision;
+            -webkit-font-smoothing: antialiased;
         }
 
         /* 讲演备注区 */
@@ -102,35 +120,21 @@
             flex-direction: column;
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
-        #notes-header {
-            padding: 10px 15px;
-            background: #f9f9f9;
-            border-bottom: 1px solid #eee;
-            font-size: 14px;
-            color: #666;
-            font-weight: bold;
-        }
-        #notes-input {
-            width: 100%;
-            height: 120px;
-            padding: 15px;
-            border: none;
-            resize: vertical;
-            font-family: sans-serif;
-            font-size: 14px;
-            line-height: 1.5;
-            color: #333;
-            box-sizing: border-box;
-            outline: none;
-        }
+        #notes-header { padding: 10px 15px; background: #f9f9f9; border-bottom: 1px solid #eee; font-size: 14px; color: #666; font-weight: bold; font-family: sans-serif; }
+        #notes-input { width: 100%; height: 120px; padding: 15px; border: none; resize: vertical; font-family: sans-serif; font-size: 14px; line-height: 1.5; color: #333; box-sizing: border-box; outline: none; }
 
         /* === 元素样式 === */
-        .element { position: absolute; cursor: move; box-sizing: border-box; }
+        .element { 
+            position: absolute; 
+            cursor: move; 
+            box-sizing: border-box; 
+            /* 核心修复：元素级强制字体 */
+            font-family: var(--font-stack);
+        }
         .element:hover { outline: 1px dashed #999; }
         .element.selected { outline: 2px solid var(--accent); z-index: 100; }
         .element[contenteditable="true"] { cursor: text; }
         
-        /* 缩放手柄 */
         .resizer { width: 12px; height: 12px; background: var(--accent); position: absolute; right: -6px; bottom: -6px; cursor: se-resize; display: none; z-index: 101; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 2px rgba(0,0,0,0.5); }
         .element.selected .resizer { display: block; }
 
@@ -146,11 +150,25 @@
         
         .logo-mark { position: absolute; top: 5%; right: 5%; width: 100px; height: 40px; background: #eee; border: 1px dashed #ccc; color: #999; display: flex; align-items: center; justify-content: center; font-size: 12px; pointer-events: none; }
         
-        /* 隐藏的备注存储容器（不显示在画布上） */
         .speaker-notes { display: none; }
+
+        /* 遮罩层 */
+        #overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 999;
+            display: none; align-items: center; justify-content: center;
+            flex-direction: column; color: white; font-family: sans-serif;
+        }
     </style>
 </head>
 <body>
+
+<div id="overlay">
+    <div style="font-size: 24px; margin-bottom: 20px;" id="overlay-msg">正在生成图片 PPT...</div>
+    <div style="width: 300px; height: 10px; background: #333; border-radius: 5px;">
+        <div id="progress-bar" style="width: 0%; height: 100%; background: #00ff00; border-radius: 5px; transition: 0.2s;"></div>
+    </div>
+</div>
 
 <div id="sidebar">
     <div id="sidebar-header">IoTSP 幻灯片</div>
@@ -163,11 +181,11 @@
     <div id="toolbar">
         <div class="tool-group">
             <span style="font-size:14px; font-weight:bold; color:var(--accent);">PPT 编辑器 Pro</span>
-            <span style="font-size:12px; color:#666;">（自动探测页数 + 备注支持）</span>
         </div>
         <div class="tool-group">
             <span id="page-indicator" style="font-size:14px; color:#333;">第 1 页</span>
-            <button onclick="exportPPT()">📥 导出 PPTX</button>
+            <button class="secondary" onclick="exportImagePPT()">📷 导出全图 PPT</button>
+            <button onclick="exportEditPPT()">📥 导出可编辑 PPT</button>
         </div>
     </div>
 
@@ -179,7 +197,7 @@
 
         <!-- 备注编辑区 -->
         <div id="notes-panel">
-            <div id="notes-header">🎤 讲演备注 (Speaker Notes) - 导出后将显示在PPT底部</div>
+            <div id="notes-header">🎤 讲演备注 (Speaker Notes)</div>
             <textarea id="notes-input" placeholder="在此输入本页的演讲稿..."></textarea>
         </div>
     </div>
@@ -189,52 +207,39 @@
     // 全局状态
     let TOTAL_PAGES = 0;
     let currentPage = 1;
-    let pageCache = {}; // 缓存格式: { 1: "html string", ... }
+    let pageCache = {}; 
 
-    // DOM 元素
     const canvas = document.getElementById('canvas');
     const notesInput = document.getElementById('notes-input');
     const sidebarList = document.getElementById('sidebar-list');
     const pageIndicator = document.getElementById('page-indicator');
+    const overlay = document.getElementById('overlay');
+    const overlayMsg = document.getElementById('overlay-msg');
+    const progressBar = document.getElementById('progress-bar');
 
     // === 1. 初始化与自动探测 ===
-    window.onload = async () => {
-        await detectPages();
-    };
+    window.onload = async () => { await detectPages(); };
 
     async function detectPages() {
         let count = 0;
-        let maxTry = 50; // 最大尝试次数，防止无限循环
-        
-        // 循环探测 pages/1.html, pages/2.html ...
+        let maxTry = 50; 
         while (count < maxTry) {
             const nextIdx = count + 1;
             try {
-                // 使用 HEAD 请求探测文件是否存在 (或者 GET)
                 const response = await fetch(`pages/${nextIdx}.html`, { method: 'HEAD' });
-                if (response.ok) {
-                    count++;
-                } else {
-                    break; // 遇到 404 停止
-                }
+                if (response.ok) count++; else break;
             } catch (e) {
-                // 如果 HEAD 不支持，尝试 GET
                 try {
                     const resGet = await fetch(`pages/${nextIdx}.html`);
                     if (resGet.ok) count++; else break;
-                } catch(err) {
-                    break;
-                }
+                } catch(err) { break; }
             }
         }
-
         TOTAL_PAGES = count;
-        
         if (TOTAL_PAGES === 0) {
-            sidebarList.innerHTML = `<div style="padding:10px; color:red;">未找到 HTML 文件。<br>请检查 pages/ 目录或本地服务器设置。</div>`;
+            sidebarList.innerHTML = `<div style="padding:10px; color:red;">未找到 HTML 文件。<br>请检查 pages/ 目录。<br>确保通过本地服务器 (localhost) 访问。</div>`;
             return;
         }
-
         renderSidebar();
         loadSlide(1);
     }
@@ -252,179 +257,108 @@
     }
 
     // === 2. 页面加载与保存逻辑 ===
+    async function loadSlide(index, skipSave = false) {
+        if (!skipSave && currentPage > 0 && canvas.innerHTML) saveCurrentState();
 
-    async function loadSlide(index) {
-        // 1. 保存当前页面的修改（含备注）
-        if (currentPage > 0 && canvas.innerHTML) {
-            saveCurrentState();
-        }
-
-        // 2. 更新 UI 选中状态
-        if (document.querySelector('.thumb.active')) {
-            document.querySelector('.thumb.active').classList.remove('active');
-        }
+        if (document.querySelector('.thumb.active')) document.querySelector('.thumb.active').classList.remove('active');
         const activeThumb = document.getElementById(`thumb-${index}`);
         if(activeThumb) activeThumb.classList.add('active');
         
         currentPage = index;
         pageIndicator.innerText = `第 ${index} / ${TOTAL_PAGES} 页`;
 
-        // 3. 获取内容 (优先缓存)
         let htmlContent = "";
         if (pageCache[index]) {
             htmlContent = pageCache[index];
         } else {
             try {
-                const res = await fetch(`pages/${index}.html?t=${Date.now()}`); // 防止浏览器缓存文件
+                const res = await fetch(`pages/${index}.html?t=${Date.now()}`);
                 if (!res.ok) throw new Error("Load failed");
                 htmlContent = await res.text();
-            } catch (e) {
-                htmlContent = `<div style="padding:20px; color:red;">加载失败: pages/${index}.html</div>`;
-            }
+            } catch (e) { htmlContent = `<div style="padding:20px; color:red;">加载失败: pages/${index}.html</div>`; }
         }
 
-        // 4. 渲染 HTML
         canvas.innerHTML = htmlContent;
-
-        // 5. 提取备注并填充到 Textarea
         const notesDiv = canvas.querySelector('.speaker-notes');
-        if (notesDiv) {
-            notesInput.value = notesDiv.innerText.trim();
-        } else {
-            notesInput.value = ""; // 无备注
-        }
-
-        // 6. 初始化交互 (拖拽/缩放)
+        notesInput.value = notesDiv ? notesDiv.innerText.trim() : "";
         initElements();
+        
+        return Promise.resolve();
     }
 
     function saveCurrentState() {
-        // 移除选中框
         document.querySelectorAll('.element').forEach(el => el.classList.remove('selected'));
-        
-        // 1. 将 Textarea 的内容回写到 HTML 的隐藏 div 中
         let notesDiv = canvas.querySelector('.speaker-notes');
-        const currentNotes = notesInput.value;
-        
         if (!notesDiv) {
-            // 如果不存在，创建一个
             notesDiv = document.createElement('div');
             notesDiv.className = 'speaker-notes';
             notesDiv.style.display = 'none';
             canvas.appendChild(notesDiv);
         }
-        notesDiv.innerText = currentNotes; // 保存文本
-
-        // 2. 更新缓存
+        notesDiv.innerText = notesInput.value;
         pageCache[currentPage] = canvas.innerHTML;
-        
-        // 更新侧边栏状态，提示已修改
         const statusSpan = document.getElementById(`status-${currentPage}`);
-        if (statusSpan) statusSpan.innerText = "已缓存";
+        if (statusSpan) statusSpan.innerText = "●";
     }
 
-    // === 3. 元素交互 (拖拽 & 缩放) ===
     function initElements() {
         document.querySelectorAll('.element').forEach(el => {
-            // 补全缩放手柄
             if (!el.querySelector('.resizer')) {
                 const resizer = document.createElement('div');
                 resizer.className = 'resizer';
                 el.appendChild(resizer);
             }
-
-            // 拖拽
             el.onmousedown = (e) => {
                 if (e.target.className === 'resizer') return;
                 document.querySelectorAll('.element').forEach(e => e.classList.remove('selected'));
                 el.classList.add('selected');
-                
                 let startX = e.clientX, startY = e.clientY;
                 let startLeft = el.offsetLeft, startTop = el.offsetTop;
                 let parentW = el.parentElement.offsetWidth, parentH = el.parentElement.offsetHeight;
-
                 const onMove = (ev) => {
-                    let dx = ev.clientX - startX;
-                    let dy = ev.clientY - startY;
-                    el.style.left = ((startLeft + dx) / parentW * 100) + '%';
-                    el.style.top = ((startTop + dy) / parentH * 100) + '%';
-                };
-                const onUp = () => {
-                    window.removeEventListener('mousemove', onMove);
-                    window.removeEventListener('mouseup', onUp);
+                    el.style.left = ((startLeft + ev.clientX - startX) / parentW * 100) + '%';
+                    el.style.top = ((startTop + ev.clientY - startY) / parentH * 100) + '%';
                 };
                 window.addEventListener('mousemove', onMove);
-                window.addEventListener('mouseup', onUp);
+                window.addEventListener('mouseup', () => window.removeEventListener('mousemove', onMove), {once:true});
             };
-
-            // 缩放
             const resizer = el.querySelector('.resizer');
             resizer.onmousedown = (e) => {
                 e.stopPropagation();
                 let startX = e.clientX, startY = e.clientY;
                 let startW = el.offsetWidth, startH = el.offsetHeight;
                 let parentW = el.parentElement.offsetWidth, parentH = el.parentElement.offsetHeight;
-
                 const onResize = (ev) => {
-                    let dx = ev.clientX - startX;
-                    let dy = ev.clientY - startY;
-                    el.style.width = ((startW + dx) / parentW * 100) + '%';
-                    el.style.height = ((startH + dy) / parentH * 100) + '%';
-                };
-                const onStop = () => {
-                    window.removeEventListener('mousemove', onResize);
-                    window.removeEventListener('mouseup', onStop);
+                    el.style.width = ((startW + ev.clientX - startX) / parentW * 100) + '%';
+                    el.style.height = ((startH + ev.clientY - startY) / parentH * 100) + '%';
                 };
                 window.addEventListener('mousemove', onResize);
-                window.addEventListener('mouseup', onStop);
+                window.addEventListener('mouseup', () => window.removeEventListener('mousemove', onResize), {once:true});
             };
         });
     }
 
-    // 监听备注输入框的修改，实时保存到DOM(可选，防止意外丢失)
-    notesInput.addEventListener('input', () => {
-        // 这里不做操作，等到切换页面或导出时统一保存
-    });
-
-    // === 4. 导出 PPTX ===
-    async function exportPPT() {
-        saveCurrentState(); // 保存当前停留页面的状态
-
+    // === 3. 导出可编辑 PPT ===
+    async function exportEditPPT() {
+        saveCurrentState();
         const pptx = new PptxGenJS();
         pptx.layout = 'LAYOUT_16x9';
-        pptx.author = 'IoTSP Lab';
         pptx.title = '开源动员大会';
 
-        // 遍历所有页面
         for (let i = 1; i <= TOTAL_PAGES; i++) {
             const slide = pptx.addSlide();
-            let htmlContent = "";
-
-            // 获取数据
-            if (pageCache[i]) {
-                htmlContent = pageCache[i];
-            } else {
-                try {
-                    const res = await fetch(`pages/${i}.html`);
-                    htmlContent = await res.text();
-                } catch(e) { console.error("Export error load file", i); continue; }
-            }
-
-            // 解析 DOM
+            let htmlContent = pageCache[i] || (await (await fetch(`pages/${i}.html`)).text());
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlContent, 'text/html');
 
-            // 1. 处理可视元素
-            const elements = doc.querySelectorAll('.element');
-            elements.forEach(el => {
+            doc.querySelectorAll('.element').forEach(el => {
                 const style = el.style;
                 const opts = {
-                    x: style.left || "0", y: style.top || "0",
-                    w: style.width, h: style.height,
-                    fontFace: "楷体", color: "000000"
+                    x: style.left || "0", y: style.top || "0", w: style.width, h: style.height,
+                    // 核心修复：显式指定 PowerPoint 标准楷体名称
+                    fontFace: "楷体", 
+                    color: "000000"
                 };
-
-                // 样式映射
                 if (el.classList.contains('fs-title')) { opts.fontSize = 44; opts.bold = true; }
                 else if (el.classList.contains('fs-sub')) { opts.fontSize = 32; }
                 else if (el.classList.contains('fs-body')) { opts.fontSize = 24; }
@@ -436,33 +370,73 @@
                 if (el.classList.contains('shape-line')) { opts.fill = { color: "023163" }; }
                 if (el.style.fontWeight === 'bold') opts.bold = true;
 
-                // 移除 resizer 干扰
                 const clone = el.cloneNode(true);
                 if (clone.querySelector('.resizer')) clone.querySelector('.resizer').remove();
                 let text = clone.innerText.trim();
 
-                // 渲染
-                if (el.classList.contains('shape-line')) {
-                    slide.addShape(pptx.ShapeType.rect, opts);
-                } else if (el.classList.contains('shape-rect')) {
-                    slide.addText(text, { ...opts, shape: pptx.ShapeType.rect });
-                } else {
-                    slide.addText(text, opts);
-                }
+                if (el.classList.contains('shape-line')) slide.addShape(pptx.ShapeType.rect, opts);
+                else if (el.classList.contains('shape-rect')) slide.addText(text, { ...opts, shape: pptx.ShapeType.rect });
+                else slide.addText(text, opts);
             });
 
-            // 2. 添加 Logo
             slide.addShape(pptx.ShapeType.rect, { x: "88%", y: "5%", w: "10%", h: "8%", fill: { color: "F2F2F2" }, line: {color: "CCCCCC", dashType: "dash"} });
             slide.addText("LOGO", { x: "88%", y: "5%", w: "10%", h: "8%", fontSize: 10, align: "center", color: "999999" });
-
-            // 3. 添加讲演备注 (核心需求)
+            
             const notesDiv = doc.querySelector('.speaker-notes');
-            if (notesDiv && notesDiv.innerText.trim() !== "") {
-                slide.addNotes(notesDiv.innerText.trim());
+            if (notesDiv) slide.addNotes(notesDiv.innerText.trim());
+        }
+        pptx.writeFile({ fileName: "IoTSP_可编辑版.pptx" });
+    }
+
+    // === 4. 导出全图 PPT ===
+    async function exportImagePPT() {
+        saveCurrentState(); 
+        const originalPage = currentPage; 
+        
+        overlay.style.display = 'flex';
+        
+        const pptx = new PptxGenJS();
+        pptx.layout = 'LAYOUT_16x9';
+        pptx.title = '开源动员大会(图片版)';
+        
+        for (let i = 1; i <= TOTAL_PAGES; i++) {
+            overlayMsg.innerText = `正在处理第 ${i} / ${TOTAL_PAGES} 页...`;
+            progressBar.style.width = `${(i / TOTAL_PAGES) * 100}%`;
+            
+            await loadSlide(i, true); 
+            
+            // 准备截图：移除交互元素
+            document.querySelectorAll('.element').forEach(el => el.classList.remove('selected'));
+            document.querySelectorAll('.resizer').forEach(el => el.style.display = 'none');
+
+            await new Promise(r => setTimeout(r, 200));
+
+            try {
+                // 核心修复：scale: 2 保证清晰度
+                const canvasEl = await html2canvas(document.getElementById('canvas'), { 
+                    scale: 2,
+                    useCORS: true, 
+                    backgroundColor: "#ffffff"
+                });
+                const imgData = canvasEl.toDataURL('image/png');
+
+                const slide = pptx.addSlide();
+                slide.addImage({ data: imgData, x: 0, y: 0, w: "100%", h: "100%" });
+
+                if (notesInput.value.trim()) {
+                    slide.addNotes(notesInput.value.trim());
+                }
+
+            } catch (err) {
+                console.error("Screen capture failed", err);
             }
         }
 
-        pptx.writeFile({ fileName: "IoTSP_Exported_Pro.pptx" });
+        overlayMsg.innerText = "正在生成文件...";
+        pptx.writeFile({ fileName: "IoTSP_全图版.pptx" }).then(() => {
+            overlay.style.display = 'none';
+            loadSlide(originalPage); 
+        });
     }
 
 </script>
